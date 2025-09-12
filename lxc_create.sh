@@ -91,8 +91,9 @@ show_gpu_options() {
     echo -e "${CYAN}  1) AMD (내장/외장 GPU)${NC}"
     echo -e "${CYAN}  2) Intel (내장/외장 GPU)${NC}" 
     echo -e "${CYAN}  3) NVIDIA (외장 GPU)${NC}"
+    echo -e "${CYAN}  4) GPU 없음 (건너뛰기)${NC}"
     
-    echo -ne "${CYAN}선택 [1-3]: ${NC}"
+    echo -ne "${CYAN}선택 [1-4]: ${NC}"
     read gpu_choice
     
     case "$gpu_choice" in
@@ -100,9 +101,13 @@ show_gpu_options() {
             export GPU_CHOICE="$gpu_choice"
             log_success "GPU 설정: $(case $gpu_choice in 1) echo "AMD";; 2) echo "Intel";; 3) echo "NVIDIA";; esac)"
             ;;
+        4)
+            export GPU_CHOICE=""
+            log_info "GPU 설정을 건너뜁니다"
+            ;;
         *)
-            log_warn "잘못된 선택입니다. AMD GPU로 기본 설정합니다"
-            export GPU_CHOICE="1"
+            log_info "잘못된 선택입니다. GPU 설정을 건너뜁니다"
+            export GPU_CHOICE=""
             ;;
     esac
 }
@@ -284,6 +289,11 @@ configure_gpu_settings() {
     show_gpu_options
     
     local lxc_conf="/etc/pve/lxc/${CT_ID}.conf"
+    
+    if [[ -z "$GPU_CHOICE" ]]; then
+        log_info "GPU 설정을 건너뜁니다"
+        return 0
+    fi
     
     case "$GPU_CHOICE" in
         1|2) # AMD 또는 Intel
