@@ -47,6 +47,7 @@ cd /tmp/scripts
 ```
 pct enter $CT_ID
 cd /tmp/scripts
+chmod +x docker.sh && chmod +x caddy_setup.sh
 
 # 4단계: Docker 서비스 배포 (Caddyfile도 자동 생성됨)
 ./docker.sh
