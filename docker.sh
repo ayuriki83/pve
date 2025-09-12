@@ -381,10 +381,10 @@ create_eof_files() {
             if [[ "$line" == "__EOF_END__" ]]; then
                 in_eof=0
                 
-                # 환경변수 치환
+                # 환경변수 치환 (수정됨: ENV_VALUES → env_values_ref)
                 local eof_output="$eof_content"
-                for key in "${!ENV_VALUES[@]}"; do
-                    eof_output=$(echo "$eof_output" | sed "s/##$key##/${ENV_VALUES[$key]}/g")
+                for key in "${!env_values_ref[@]}"; do
+                    eof_output=$(echo "$eof_output" | sed "s/##$key##/${env_values_ref[$key]}/g")
                 done
                 
                 # 디렉토리 생성 및 파일 작성
