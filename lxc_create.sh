@@ -155,7 +155,7 @@ MOUNT_POINT=${MOUNT_POINT:-"/mnt/rclone"}
 # Root 권한 확인
 if [[ $EUID -ne 0 ]]; then
     log_error "이 스크립트는 root 권한이 필요합니다"
-    log_info "다음 명령으로 실행하세요: sudo $0"
+    log_info "다음 명령으로 실행하세요: sudo ${BASH_SOURCE[0]}"
     exit 1
 fi
 
