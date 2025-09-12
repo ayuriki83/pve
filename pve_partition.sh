@@ -301,4 +301,187 @@ setup_lvm_disk() {
     fi
     
     if parted /dev/$disk --script set 1 lvm on; then
-        log_
+        log_success "LVM 플래그 설정 완료"
+    else
+        log_error "LVM 플래그 설정에 실패했습니다"
+        return 1
+    fi
+    
+    partprobe /dev/$disk
+    udevadm trigger
+    sleep 2
+    
+    # 새 파티션 경로 찾기
+    local partition=$(lsblk -nr -o NAME /dev/$disk | grep -v "^$disk$" | tail -n1)
+    partition="/dev/$partition"
+    
+    log_info "LVM 구조 생성 중..."
+    
+    # Physical Volume 생성
+    if pvcreate --yes "$partition"; then
+        log_success "Physical Volume 생성 완료: $partition"
+    else
+        log_error "Physical Volume 생성에 실패했습니다"
+        return 1
+    fi
+    
+    # Volume Group 생성
+    if vgcreate $VG_DATA "$partition"; then
+        log_success "Volume Group 생성 완료: $VG_DATA"
+    else
+        log_error "Volume Group 생성에 실패했습니다"
+        return 1
+    fi
+    
+    # Thin Pool 생성
+    if lvcreate -l 100%FREE -T $VG_DATA/$LV_DATA; then
+        log_success "Thin Pool 생성 완료: $VG_DATA/$LV_DATA"
+    else
+        log_error "Thin Pool 생성에 실패했습니다"
+        return 1
+    fi
+    
+    # Proxmox 저장소 등록
+    if pvesm add lvmthin $LVM_DATA --vgname $VG_DATA --thinpool $LV_DATA --content images,rootdir; then
+        log_success "Proxmox LVM-Thin 저장소 등록 완료: $LVM_DATA"
+    else
+        log_warn "Proxmox 저장소 등록에 실패했지만 LVM 구조는 생성되었습니다"
+    fi
+    
+    echo
+    log_success "보조 디스크 LVM 설정 완료"
+    echo -e "${CYAN}  - Physical Volume: $partition${NC}"
+    echo -e "${CYAN}  - Volume Group: $VG_DATA${NC}"
+    echo -e "${CYAN}  - Thin Pool: $VG_DATA/$LV_DATA${NC}"
+    echo -e "${CYAN}  - Proxmox 저장소: $LVM_DATA${NC}"
+}
+
+# Directory 디스크 설정
+setup_directory_disk() {
+    local disk="$1"
+    
+    log_info "Directory(ext4) 파티션 생성 중..."
+    
+    # 파티션 생성
+    if parted /dev/$disk --script mkpart primary ext4 0% 100%; then
+        log_success "파티션 생성 완료"
+    else
+        log_error "파티션 생성에 실패했습니다"
+        return 1
+    fi
+    
+    partprobe /dev/$disk
+    udevadm trigger
+    sleep 2
+    
+    # 새 파티션 경로 찾기
+    local partition=$(lsblk -nr -o NAME /dev/$disk | grep -v "^$disk$" | tail -n1)
+    partition="/dev/$partition"
+    local mount_path="/mnt/$DIR_NAME"
+    
+    log_info "파일시스템 생성 및 마운트 설정 중..."
+    
+    # 마운트 디렉토리 생성
+    mkdir -p "$mount_path" >/dev/null 2>&1
+    
+    # ext4 파일시스템 생성
+    if mkfs.ext4 "$partition" >/dev/null 2>&1; then
+        log_success "ext4 파일시스템 생성 완료"
+    else
+        log_error "파일시스템 생성에 실패했습니다"
+        return 1
+    fi
+    
+    # UUID 획득
+    local uuid=$(blkid -s UUID -o value "$partition")
+    if [[ -z "$uuid" ]]; then
+        log_error "UUID를 찾을 수 없습니다: $partition"
+        return 1
+    fi
+    
+    # fstab 설정
+    if ! grep -qs "UUID=$uuid $mount_path" /etc/fstab; then
+        echo "UUID=$uuid $mount_path ext4 defaults 0 2" >> /etc/fstab
+        log_success "fstab 설정 완료"
+    else
+        log_info "이미 fstab에 등록되어 있습니다"
+    fi
+    
+    # 마운트
+    systemctl daemon-reload
+    if mount -a; then
+        log_success "디렉토리 마운트 완료: $mount_path"
+    else
+        log_error "마운트에 실패했습니다"
+        return 1
+    fi
+    
+    # Proxmox 저장소 등록
+    if pvesm add dir "$DIR_NAME" --path "$mount_path" --content images,backup,rootdir; then
+        log_success "Proxmox Directory 저장소 등록 완료: $DIR_NAME"
+    else
+        log_warn "Proxmox 저장소 등록에 실패했지만 마운트는 완료되었습니다"
+    fi
+    
+    echo
+    log_success "보조 디스크 Directory 설정 완료"
+    echo -e "${CYAN}  - 파티션: $partition${NC}"
+    echo -e "${CYAN}  - UUID: $uuid${NC}"
+    echo -e "${CYAN}  - 마운트 포인트: $mount_path${NC}"
+    echo -e "${CYAN}  - Proxmox 저장소: $DIR_NAME${NC}"
+}
+
+# 메인 실행 함수
+main() {
+    show_header "Proxmox Disk Partition 자동화"
+    
+    log_info "시스템 정보"
+    echo -e "${CYAN}  - 호스트명: $(hostname)${NC}"
+    echo -e "${CYAN}  - Proxmox 버전: $(pveversion --verbose | head -1)${NC}"
+    echo -e "${CYAN}  - 현재 저장소: $(pvesm status | grep -v 'Name' | wc -l)개${NC}"
+    
+    # 기존 저장소 정보 출력
+    echo
+    log_info "현재 Proxmox 저장소 목록"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    pvesm status | while IFS= read -r line; do
+        if [[ $line =~ ^Name ]]; then
+            echo -e "${YELLOW}  $line${NC}"
+        else
+            echo -e "${CYAN}  $line${NC}"
+        fi
+    done
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    
+    # 1단계: 메인 디스크 설정
+    setup_main_disk
+    
+    echo
+    # 2단계: 보조 디스크 설정
+    setup_secondary_disk
+    
+    # 최종 상태 출력
+    echo
+    log_success "════════════════════════════════════════════════════════════"
+    log_success "  파티션 설정이 완료되었습니다!"
+    log_success "════════════════════════════════════════════════════════════"
+    
+    echo
+    log_info "최종 파티션 상태"
+    show_disk_info
+    
+    echo
+    log_info "최종 Proxmox 저장소 상태"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    pvesm status | while IFS= read -r line; do
+        if [[ $line =~ ^Name ]]; then
+            echo -e "${YELLOW}  $line${NC}"
+        else
+            echo -e "${CYAN}  $line${NC}"
+        fi
+    done
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+}
+
+# 스크립트 실행
+main
