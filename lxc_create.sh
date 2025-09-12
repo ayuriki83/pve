@@ -337,6 +337,14 @@ start_and_initialize() {
     # 임시 스크립트 디렉토리 생성
     pct exec $CT_ID -- mkdir -p /tmp/scripts
     
+    # GPU_CHOICE 환경변수를 lxc.env에 추가 (빈 값도 포함)
+    if grep -q "^GPU_CHOICE=" "$SCRIPT_DIR/lxc.env"; then
+        sed -i "s/^GPU_CHOICE=.*/GPU_CHOICE=\"$GPU_CHOICE\"/" "$SCRIPT_DIR/lxc.env"
+    else
+        echo "GPU_CHOICE=\"$GPU_CHOICE\"" >> "$SCRIPT_DIR/lxc.env"
+    fi
+    log_info "GPU 설정을 환경변수 파일에 저장: ${GPU_CHOICE:-'없음'}"
+    
     # 필요한 파일들 업로드
     local files_to_upload=(
         "lxc_init.sh"
