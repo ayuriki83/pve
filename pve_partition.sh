@@ -282,7 +282,7 @@ setup_secondary_disk() {
     if [[ "$secondary_type" == "1" ]]; then
         setup_lvm_disk "$secondary_disk"
     else
-        setup_directory_disk "$secondary_disk"
+        setup_directory_disk "$secondary_disk" "$DIR_NAME"
     fi
 }
 
@@ -377,7 +377,8 @@ setup_directory_disk() {
     # 새 파티션 경로 찾기
     local partition=$(lsblk -nr -o NAME /dev/$disk | grep -v "^$disk$" | tail -n1)
     partition="/dev/$partition"
-    local mount_path="/mnt/$DIR_NAME"
+    local mount_path="/mnt/$2"
+    local dir_name="mnt-$2"
     
     log_info "파일시스템 생성 및 마운트 설정 중..."
     
@@ -417,8 +418,8 @@ setup_directory_disk() {
     fi
     
     # Proxmox 저장소 등록
-    if pvesm add dir "$DIR_NAME" --path "$mount_path" --content images,backup,rootdir; then
-        log_success "Proxmox Directory 저장소 등록 완료: $DIR_NAME"
+    if pvesm add dir "$dir_name" --path "$mount_path" --content images,backup,rootdir; then
+        log_success "Proxmox Directory 저장소 등록 완료: $dir_name"
     else
         log_warn "Proxmox 저장소 등록에 실패했지만 마운트는 완료되었습니다"
     fi
@@ -428,7 +429,7 @@ setup_directory_disk() {
     echo -e "${CYAN}  - 파티션: $partition${NC}"
     echo -e "${CYAN}  - UUID: $uuid${NC}"
     echo -e "${CYAN}  - 마운트 포인트: $mount_path${NC}"
-    echo -e "${CYAN}  - Proxmox 저장소: $DIR_NAME${NC}"
+    echo -e "${CYAN}  - Proxmox 저장소: $dir_name${NC}"
 }
 
 # 3. USB 장치 추가 설정 함수
@@ -460,7 +461,8 @@ setup_usb_devices() {
     local usb_count=1
     
     # 각 USB 장치를 일일이 사용자에게 설정 여부 묻기
-    echo "$usb_devices" | while IFS= read -r usb_disk; do
+    mapfile -t usb_array <<< "$usb_devices"
+    for usb_disk in "${usb_array[@]}"; do
         if [[ -z "$usb_disk" ]]; then
             continue
         fi
@@ -468,7 +470,7 @@ setup_usb_devices() {
         echo
         # 사용자에게 각 USB 디스크 사용 여부 질문
         echo -ne "${YELLOW}USB 디스크 /dev/$usb_disk를 설정하시겠습니까? [y/N]: ${NC}"
-        read -r usb_confirm
+        read usb_confirm
         
         if [[ "$usb_confirm" =~ ^([yY][eE][sS]|[yY])$ ]]; then
             log_info "USB 장치 /dev/$usb_disk 설정 중..."
@@ -489,15 +491,14 @@ setup_usb_devices() {
                 parted /dev/$usb_disk --script mklabel gpt
                 
                 # 공통 함수 사용하여 디렉토리 설정
-                setup_directory_storage "$usb_disk" "$mount_path" "$storage_name" "USB-${usb_count}"
+                setup_directory_disk "$usb_disk" "$storage_name"
+                #setup_directory_storage "$usb_disk" "$mount_path" "$storage_name" "USB-${usb_count}"
             else
                 log_info "USB 디스크 /dev/$usb_disk 설정을 건너뜁니다"
             fi
         else
             log_info "USB 디스크 /dev/$usb_disk 설정을 건너뜁니다"
         fi
-        
-        ((usb_count++))
     done
 
     log_success "USB 장치 설정 완료"
