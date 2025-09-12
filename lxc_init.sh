@@ -191,7 +191,7 @@ configure_gpu() {
     log_step "단계 6/$TOTAL_STEPS: GPU 설정"
     
     if [[ -z "$GPU_CHOICE" ]]; then
-        log_info "GPU 설정 정보가 없습니다. 건너뜁니다"
+        log_info "GPU 설정이 지정되지 않았습니다. 건너뜁니다"
         return 0
     fi
     
@@ -236,7 +236,7 @@ configure_gpu() {
             fi
             ;;
         *)
-            log_warn "알 수 없는 GPU 설정: $GPU_CHOICE"
+            log_info "GPU 설정을 건너뜁니다"
             ;;
     esac
 }
