@@ -121,7 +121,7 @@ configure_security() {
     apt-get install -y ufw >/dev/null 2>&1
     
     # 포트 허용 설정
-    local ports=(22 8006 45876) # SSH, Proxmox Web UI, Beszel agent
+    local ports=(22 8006 45876)
     for port in "${ports[@]}"; do
         ufw allow "$port" >/dev/null 2>&1
         log_info "포트 $port 허용됨"
@@ -216,16 +216,10 @@ main() {
     echo -e "${CYAN}  - 메모리: $(free -h | awk '/^Mem:/ {print $2}')${NC}"
     echo -e "${CYAN}  - 디스크 사용량: $(df -h / | awk 'NR==2 {print $3"/"$2" ("$5")"}')${NC}"
     
-    # 1단계: root 파티션 크기 확장
     expand_root_partition
-    
-    # 2단계: 보안 설정
     configure_security
-        
-    # 3단계: GPU 설정
     configure_gpu
     
-    # 완료 메시지
     echo
     log_success "════════════════════════════════════════════════════════════"
     log_success "  Proxmox 초기설정이 완료되었습니다!"
@@ -241,5 +235,4 @@ main() {
     fi
 }
 
-# 스크립트 실행
 main
