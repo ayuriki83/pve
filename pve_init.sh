@@ -79,41 +79,6 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
-# 메인 실행
-main() {
-    show_header "Proxmox 초기설정 자동화"
-    
-    log_info "시스템 정보"
-    echo -e "${CYAN}  - OS: $(cat /etc/os-release | grep PRETTY_NAME | cut -d'"' -f2)${NC}"
-    echo -e "${CYAN}  - 커널: $(uname -r)${NC}"
-    echo -e "${CYAN}  - 메모리: $(free -h | awk '/^Mem:/ {print $2}')${NC}"
-    echo -e "${CYAN}  - 디스크 사용량: $(df -h / | awk 'NR==2 {print $3"/"$2" ("$5")"}')${NC}"
-    
-    # 1단계: root 파티션 크기 확장
-    expand_root_partition
-    
-    # 2단계: 보안 설정
-    configure_security
-        
-    # 3단계: GPU 설정
-    configure_gpu
-    
-    # 완료 메시지
-    echo
-    log_success "════════════════════════════════════════════════════════════"
-    log_success "  Proxmox 초기설정이 완료되었습니다!"
-    log_success "════════════════════════════════════════════════════════════"
-    echo
-    
-    log_warn "설정을 완전히 적용하려면 시스템을 재부팅해주세요"
-    
-    if confirm_action "지금 재부팅하시겠습니까?" "n"; then
-        log_info "시스템을 재부팅합니다..."
-        sleep 3
-        reboot
-    fi
-}
-
 # root 파티션 크기 확장
 expand_root_partition() {
     log_step "단계 1/3: root 파티션 크기 확장"
@@ -158,19 +123,21 @@ configure_security() {
     # 포트 허용 설정
     local ports=(22 8006 45876) # SSH, Proxmox Web UI, Beszel agent
     for port in "${ports[@]}"; do
-        ufw allow $port >/dev/null 2>&1
+        ufw allow "$port" >/dev/null 2>&1
         log_info "포트 $port 허용됨"
     done
     
     # 내부 네트워크 설정
-    local current_ip=$(hostname -I | awk '{print $1}')
-    local internal_network="$(echo $current_ip | awk -F. '{print $1"."$2"."$3".0/24"}')"
+    local current_ip
+    current_ip=$(hostname -I | awk '{print $1}')
+    local internal_network
+    internal_network="$(echo "$current_ip" | awk -F. '{print $1"."$2"."$3".0/24"}')"
     
     echo
     log_info "현재 시스템 IP: $current_ip"
     log_info "자동 감지된 내부 네트워크: $internal_network"
     echo -ne "${CYAN}내부망 IP 대역을 입력하세요 [기본값: $internal_network]: ${NC}"
-    read user_network
+    read -r user_network
     user_network=${user_network:-$internal_network}
     
     ufw allow from "$user_network" >/dev/null 2>&1
@@ -196,9 +163,9 @@ configure_gpu() {
     echo -e "${CYAN}  4) 건너뛰기${NC}"
     
     echo -ne "${CYAN}선택 [1-4]: ${NC}"
-    read gpu_choice
+    read -r gpu_choice
     
-    case $gpu_choice in
+    case "$gpu_choice" in
         1)
             log_info "AMD GPU 설정 중..."
             apt-get install -y pve-firmware >/dev/null 2>&1
@@ -236,6 +203,41 @@ configure_gpu() {
         else
             log_error "GRUB 업데이트에 실패했습니다"
         fi
+    fi
+}
+
+# 메인 실행
+main() {
+    show_header "Proxmox 초기설정 자동화"
+    
+    log_info "시스템 정보"
+    echo -e "${CYAN}  - OS: $(cat /etc/os-release | grep PRETTY_NAME | cut -d'"' -f2)${NC}"
+    echo -e "${CYAN}  - 커널: $(uname -r)${NC}"
+    echo -e "${CYAN}  - 메모리: $(free -h | awk '/^Mem:/ {print $2}')${NC}"
+    echo -e "${CYAN}  - 디스크 사용량: $(df -h / | awk 'NR==2 {print $3"/"$2" ("$5")"}')${NC}"
+    
+    # 1단계: root 파티션 크기 확장
+    expand_root_partition
+    
+    # 2단계: 보안 설정
+    configure_security
+        
+    # 3단계: GPU 설정
+    configure_gpu
+    
+    # 완료 메시지
+    echo
+    log_success "════════════════════════════════════════════════════════════"
+    log_success "  Proxmox 초기설정이 완료되었습니다!"
+    log_success "════════════════════════════════════════════════════════════"
+    echo
+    
+    log_warn "설정을 완전히 적용하려면 시스템을 재부팅해주세요"
+    
+    if confirm_action "지금 재부팅하시겠습니까?" "n"; then
+        log_info "시스템을 재부팅합니다..."
+        sleep 3
+        reboot
     fi
 }
 
