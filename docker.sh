@@ -28,7 +28,7 @@ show_header() {
     local title="$1"
     echo
     echo -e "${PURPLE}════════════════════════════════════════════════════════════${NC}"
-    echo -e "${PURPLE}                  $title${NC}"
+    echo -e "${PURPLE}   $title${NC}"
     echo -e "${PURPLE}════════════════════════════════════════════════════════════${NC}"
     echo
 }
