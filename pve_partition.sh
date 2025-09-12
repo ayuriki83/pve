@@ -435,7 +435,6 @@ setup_directory_disk() {
 setup_usb_devices() {
     log_step "단계 3/5: USB 장치 추가 설정"
     
-    # USB 장치 확인
     show_disk_info
     
     local usb_devices=$(lsblk -o NAME,TRAN | grep usb | awk '{print $1}' | sed 's/├─//g' | sed 's/└─//g' | grep -E '^sd[a-z]$')
@@ -456,54 +455,51 @@ setup_usb_devices() {
             log_error "올바른 USB 디스크명을 입력하지 않았습니다"
             return 1
         fi
-    else
-        log_success "다음 USB 장치들이 감지되었습니다:"
-        echo "$usb_devices" | while IFS= read -r line; do
-            echo -e "${GREEN}  - /dev/$line${NC}"
-        done
-        echo
-        
-        if ! confirm_action "감지된 USB 장치들을 설정하시겠습니까?"; then
-            log_info "USB 장치 설정을 건너뜁니다"
-            return 0
-        fi
     fi
     
     local usb_count=1
     
-    # 각 USB 장치를 순서대로 설정
+    # 각 USB 장치를 일일이 사용자에게 설정 여부 묻기
     echo "$usb_devices" | while IFS= read -r usb_disk; do
         if [[ -z "$usb_disk" ]]; then
             continue
         fi
         
-        log_info "USB 장치 /dev/$usb_disk 설정 중..."
+        echo
+        # 사용자에게 각 USB 디스크 사용 여부 질문
+        echo -ne "${YELLOW}USB 디스크 /dev/$usb_disk를 설정하시겠습니까? [y/N]: ${NC}"
+        read -r usb_confirm
         
-        local mount_path="/mnt/usb"
-        local storage_name="usb"
-        
-        # 여러 USB 장치인 경우 번호 추가
-        if [[ $usb_count -gt 1 ]]; then
-            mount_path="/mnt/usb${usb_count}"
-            storage_name="usb${usb_count}"
-        fi
-        
-        log_warn "⚠️  주의: USB 디스크 /dev/$usb_disk의 모든 데이터가 삭제됩니다!"
-        
-        if confirm_action "USB 디스크 /dev/$usb_disk를 $mount_path에 설정하시겠습니까?"; then
-            # 기존 시그니처 제거 및 파티션 테이블 생성
-            wipefs -a /dev/$usb_disk >/dev/null 2>&1
-            parted /dev/$usb_disk --script mklabel gpt
+        if [[ "$usb_confirm" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+            log_info "USB 장치 /dev/$usb_disk 설정 중..."
             
-            # 공통 함수 사용하여 디렉토리 설정
-            setup_directory_storage "$usb_disk" "$mount_path" "$storage_name" "USB-${usb_count}"
+            local mount_path="/mnt/usb"
+            local storage_name="usb"
+            
+            if [[ $usb_count -gt 1 ]]; then
+                mount_path="/mnt/usb${usb_count}"
+                storage_name="usb${usb_count}"
+            fi
+            
+            log_warn "⚠️  주의: USB 디스크 /dev/$usb_disk의 모든 데이터가 삭제됩니다!"
+            
+            if confirm_action "USB 디스크 /dev/$usb_disk를 $mount_path에 설정하시겠습니까?"; then
+                # 기존 시그니처 제거 및 파티션 테이블 생성
+                wipefs -a /dev/$usb_disk >/dev/null 2>&1
+                parted /dev/$usb_disk --script mklabel gpt
+                
+                # 공통 함수 사용하여 디렉토리 설정
+                setup_directory_storage "$usb_disk" "$mount_path" "$storage_name" "USB-${usb_count}"
+            else
+                log_info "USB 디스크 /dev/$usb_disk 설정을 건너뜁니다"
+            fi
         else
             log_info "USB 디스크 /dev/$usb_disk 설정을 건너뜁니다"
         fi
         
         ((usb_count++))
     done
-    
+
     log_success "USB 장치 설정 완료"
 }
 
