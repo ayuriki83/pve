@@ -442,6 +442,3 @@ main() {
     echo -e "${CYAN}  - SSH: ssh root@$(echo $IP | cut -d'/' -f1)${NC}"
     echo -e "${CYAN}  - 웹 관리: https://$(hostname -I | awk '{print $1}'):8006${NC}"
 }
-
-# 스크립트 실행
-main
