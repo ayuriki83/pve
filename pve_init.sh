@@ -19,8 +19,8 @@ NC='\033[0m'
 log_success() { echo -e "${GREEN}✅ [$(date '+%Y-%m-%d %H:%M:%S')] $*${NC}"; }
 log_error() { echo -e "${RED}❌ [$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $*${NC}" >&2; }
 log_warn() { echo -e "${YELLOW}⚠️ [$(date '+%Y-%m-%d %H:%M:%S')] WARNING: $*${NC}"; }
-log_info() { echo -e "${CYAN}ℹ️ [$(date '+%Y-%m-%d %H:%M:%S')] $*${NC}" }
-log_step() { echo -e "${BLUE}🔄 [$(date '+%Y-%m-%d %H:%M:%S')] $*${NC}" }
+log_info() { echo -e "${CYAN}ℹ️ [$(date '+%Y-%m-%d %H:%M:%S')] $*${NC}"; }
+log_step() { echo -e "${BLUE}🔄 [$(date '+%Y-%m-%d %H:%M:%S')] $*${NC}"; }
 
 # 헤더 출력 함수
 show_header() {
