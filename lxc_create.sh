@@ -304,9 +304,10 @@ configure_rclone_and_lxc() {
     # LXC 설정 추가
     log_info "LXC 컨테이너 설정 추가 중..."
 
-    if [ -z "$DIR_BACKUP" ]; then
+    if [ -n "$DIR_BACKUP" ]; then
         cat >> "$lxc_conf" <<EOF
 mp0: $lv_path,mp=$MNT_RCLONE
+mp1: $DIR_BACKUP,mp=$MNT_BACKUP
 lxc.cgroup2.devices.allow: c 10:229 rwm
 lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file
 lxc.apparmor.profile: unconfined
@@ -316,7 +317,6 @@ EOF
     else
         cat >> "$lxc_conf" <<EOF
 mp0: $lv_path,mp=$MNT_RCLONE
-mp1: $DIR_BACKUP,mp=$MNT_BACKUP
 lxc.cgroup2.devices.allow: c 10:229 rwm
 lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file
 lxc.apparmor.profile: unconfined
