@@ -117,17 +117,50 @@ validate_input() {
 
 # 설정 파일 로드 함수
 load_config() {
-    local config_file="$1"
+    # lxc.env 파일만 확인 (통합됨)
+    local config_files=(
+        "$SCRIPT_DIR/lxc.env"
+        "./lxc.env"
+    )
     
-    if [[ -f "$config_file" ]]; then
-        source "$config_file"
-        log_success "설정 파일 로드됨: $config_file"
-        return 0
-    else
-        log_error "설정 파일을 찾을 수 없습니다: $config_file"
-        log_error "BASE_DOMAIN이 설정되지 않았습니다"
+    local config_loaded=false
+    
+    for file in "${config_files[@]}"; do
+        if [[ -f "$file" ]]; then
+            source "$file"
+            log_success "설정 파일 로드됨: $file"
+            config_loaded=true
+            break
+        fi
+    done
+    
+    if [[ "$config_loaded" == false ]]; then
+        log_error "환경 설정 파일(lxc.env)을 찾을 수 없습니다"
+        log_info "docker.sh를 먼저 실행하여 환경변수를 설정해주세요"
         return 1
     fi
+    
+    # DOMAIN 값을 BASE_DOMAIN으로 설정
+    if [[ -n "$DOMAIN" ]]; then
+        BASE_DOMAIN="$DOMAIN"
+        log_success "도메인 설정: $BASE_DOMAIN"
+    else
+        log_warn "DOMAIN 환경변수가 설정되지 않았습니다"
+        echo -ne "${CYAN}도메인명을 입력하세요 (예: example.com): ${NC}"
+        read -r BASE_DOMAIN
+        
+        if [[ -n "$BASE_DOMAIN" ]]; then
+            # lxc.env 파일에 DOMAIN 추가
+            echo "DOMAIN=\"$BASE_DOMAIN\"" >> "$file"
+            log_success "도메인이 설정되었습니다: $BASE_DOMAIN"
+        else
+            log_error "도메인이 설정되지 않았습니다"
+            return 1
+        fi
+    fi
+    
+    export BASE_DOMAIN
+    return 0
 }
 
 # 경로 및 파일 변수 설정
