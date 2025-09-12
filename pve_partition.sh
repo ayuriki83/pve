@@ -65,9 +65,9 @@ show_disk_info() {
 main━━━━━━━━━━━━━━━━━━━━━━${NC}"
     lsblk -o NAME,SIZE,TYPE,MOUNTPOINT | while IFS= read -r line; do
         if [[ $line =~ ^NAME ]]; then
-            echo -e "${YELLOW}  $line${NC}"
+            echo -e "${YELLOW} ${line} ${NC}"
         else
-            echo -e "${CYAN}  $line${NC}"
+            echo -e "${CYAN} ${line} ${NC}"
         fi
     done
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
