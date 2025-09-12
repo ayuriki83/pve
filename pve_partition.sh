@@ -118,7 +118,7 @@ fi
 
 # 메인 디스크 설정 함수
 setup_main_disk() {
-    log_step "메인 디스크 설정 (Linux LVM 타입)"
+    log_step "단계 1/5: 메인 디스크 설정 (Linux LVM 타입)"
     
     show_disk_info
     
@@ -233,7 +233,7 @@ setup_main_disk() {
 
 # 보조 디스크 설정 함수
 setup_secondary_disk() {
-    log_step "보조/백업 디스크 설정"
+    log_step "단계 2/5: 보조/백업 디스크 설정"
     
     show_disk_info
     
@@ -431,6 +431,149 @@ setup_directory_disk() {
     echo -e "${CYAN}  - Proxmox 저장소: $DIR_NAME${NC}"
 }
 
+# 3. USB 장치 추가 설정 함수
+setup_usb_devices() {
+    log_step "단계 3/5: USB 장치 추가 설정"
+    
+    # USB 장치 확인
+    show_disk_info
+    
+    local usb_devices=$(lsblk -o NAME,TRAN | grep usb | awk '{print $1}' | sed 's/├─//g' | sed 's/└─//g' | grep -E '^sd[a-z]$')
+    
+    if [[ -z "$usb_devices" ]]; then
+        log_warn "USB 저장 장치를 찾을 수 없습니다"
+        if ! confirm_action "USB 장치를 수동으로 추가하시겠습니까?"; then
+            log_info "USB 장치 설정을 건너뜁니다"
+            return 0
+        fi
+        
+        echo -ne "${CYAN}USB 디스크명을 입력하세요 (예: sdb, sdc): ${NC}"
+        read manual_usb_disk
+        
+        if [[ -n "$manual_usb_disk" ]] && validate_disk "$manual_usb_disk"; then
+            usb_devices="$manual_usb_disk"
+        else
+            log_error "올바른 USB 디스크명을 입력하지 않았습니다"
+            return 1
+        fi
+    else
+        log_success "다음 USB 장치들이 감지되었습니다:"
+        echo "$usb_devices" | while IFS= read -r line; do
+            echo -e "${GREEN}  - /dev/$line${NC}"
+        done
+        echo
+        
+        if ! confirm_action "감지된 USB 장치들을 설정하시겠습니까?"; then
+            log_info "USB 장치 설정을 건너뜁니다"
+            return 0
+        fi
+    fi
+    
+    local usb_count=1
+    
+    # 각 USB 장치를 순서대로 설정
+    echo "$usb_devices" | while IFS= read -r usb_disk; do
+        if [[ -z "$usb_disk" ]]; then
+            continue
+        fi
+        
+        log_info "USB 장치 /dev/$usb_disk 설정 중..."
+        
+        local mount_path="/mnt/usb"
+        local storage_name="usb"
+        
+        # 여러 USB 장치인 경우 번호 추가
+        if [[ $usb_count -gt 1 ]]; then
+            mount_path="/mnt/usb${usb_count}"
+            storage_name="usb${usb_count}"
+        fi
+        
+        log_warn "⚠️  주의: USB 디스크 /dev/$usb_disk의 모든 데이터가 삭제됩니다!"
+        
+        if confirm_action "USB 디스크 /dev/$usb_disk를 $mount_path에 설정하시겠습니까?"; then
+            # 기존 시그니처 제거 및 파티션 테이블 생성
+            wipefs -a /dev/$usb_disk >/dev/null 2>&1
+            parted /dev/$usb_disk --script mklabel gpt
+            
+            # 공통 함수 사용하여 디렉토리 설정
+            setup_directory_storage "$usb_disk" "$mount_path" "$storage_name" "USB-${usb_count}"
+        else
+            log_info "USB 디스크 /dev/$usb_disk 설정을 건너뜁니다"
+        fi
+        
+        ((usb_count++))
+    done
+    
+    log_success "USB 장치 설정 완료"
+}
+
+# 4. Proxmox 백업공간 선택 함수
+setup_backup_selection() {
+    log_step "단계 4/5: Proxmox 백업공간 선택"
+    
+    echo
+    log_info "현재 설정된 저장소 목록:"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    
+    local available_storages=()
+    local storage_paths=()
+    local counter=1
+    
+    # Directory 타입 저장소만 필터링
+    while IFS= read -r line; do
+        if [[ $line =~ ^Name ]]; then
+            continue
+        fi
+        
+        local storage_name=$(echo "$line" | awk '{print $1}')
+        local storage_type=$(echo "$line" | awk '{print $2}')
+        
+        if [[ "$storage_type" == "dir" ]]; then
+            local storage_path=$(pvesm path "$storage_name" 2>/dev/null | head -1 | cut -d'/' -f1-3)
+            if [[ -n "$storage_path" ]]; then
+                available_storages+=("$storage_name")
+                storage_paths+=("$storage_path")
+                echo -e "${GREEN}  $counter) $storage_name ($storage_path)${NC}"
+                ((counter++))
+            fi
+        fi
+    done < <(pvesm status)
+    
+    echo -e "${CYAN}  $counter) 백업 설정 안함${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    
+    if [[ ${#available_storages[@]} -eq 0 ]]; then
+        log_warn "백업 가능한 저장소가 없습니다"
+        return 0
+    fi
+    
+    echo -ne "${CYAN}백업 저장소를 선택하세요 [1-$counter]: ${NC}"
+    read backup_choice
+    
+    if [[ "$backup_choice" -ge 1 ]] && [[ "$backup_choice" -lt $counter ]]; then
+        local selected_index=$((backup_choice - 1))
+        local selected_storage="${available_storages[$selected_index]}"
+        local selected_path="${storage_paths[$selected_index]}"
+        
+        log_success "선택된 백업 저장소: $selected_storage ($selected_path)"
+        
+        # pve.env 파일에 BACKUP 변수 추가/업데이트
+        if [[ -f "$ENV_FILE" ]]; then
+            # 기존 BACKUP 변수 제거
+            sed -i '/^BACKUP=/d' "$ENV_FILE"
+        fi
+        
+        # 새 BACKUP 변수 추가
+        echo "BACKUP=\"$selected_path\"" >> "$ENV_FILE"
+        log_success "pve.env 파일에 BACKUP 변수가 저장되었습니다: $selected_path"
+        
+    elif [[ "$backup_choice" -eq $counter ]]; then
+        log_info "백업 설정을 하지 않습니다"
+    else
+        log_warn "잘못된 선택입니다. 백업 설정을 건너뜁니다"
+    fi
+}
+
 # 메인 실행 함수
 main() {
     show_header "Proxmox Disk Partition 자동화"
@@ -459,6 +602,14 @@ main() {
     echo
     # 2단계: 보조 디스크 설정
     setup_secondary_disk
+
+    echo
+    # 3단계: USB 장치 추가 설정
+    setup_usb_devices
+    
+    echo
+    # 4단계: Proxmox 백업공간 선택
+    setup_backup_selection
     
     # 최종 상태 출력
     echo
