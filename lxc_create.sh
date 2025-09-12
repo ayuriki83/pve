@@ -64,6 +64,20 @@ validate_ip() {
     return 0
 }
 
+# 확인 메시지 함수 (추가)
+confirm_action() {
+    local message="$1"
+    
+    echo
+    echo -ne "${YELLOW}⚠️ $message [y/N]: ${NC}"
+    read -r response
+    
+    case "$response" in
+        [yY]|[yY][eE][sS]) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 # 템플릿 정보 출력 함수
 show_template_info() {
     echo
