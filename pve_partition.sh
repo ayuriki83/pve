@@ -431,6 +431,71 @@ setup_directory_disk() {
     echo -e "${CYAN}  - Proxmox 저장소: $DIR_NAME${NC}"
 }
 
+# USB 저장소 설정
+configure_usb_storage() {
+    log_step "단계 3/4: USB 저장소 설정 (선택사항)"
+    
+    echo
+    if ! confirm_action "USB 장치를 백업 저장소로 사용하시겠습니까?" "n"; then
+        log_info "USB 저장소 설정을 건너뜁니다"
+        return 0
+    fi
+    
+    echo
+    log_info "현재 시스템의 블록 장치 목록:"
+    lsblk -o NAME,SIZE,TYPE,MOUNTPOINT | grep -E 'NAME|disk|part' | while IFS= read -r line; do
+        echo -e "${CYAN}  $line${NC}"
+    done
+    
+    echo
+    echo -ne "${CYAN}USB 장치 이름을 입력하세요 (예: sda1): ${NC}"
+    read usb_device
+    
+    if [[ -z "$usb_device" ]]; then
+        log_warn "USB 장치 이름이 입력되지 않았습니다. 건너뜁니다"
+        return 0
+    fi
+    
+    if [[ ! -b "/dev/$usb_device" ]]; then
+        log_error "장치 /dev/$usb_device를 찾을 수 없습니다"
+        return 1
+    fi
+    
+    local mount_point="/mnt/$USB_MOUNT"
+    
+    log_info "USB 장치 /dev/$usb_device를 $mount_point에 마운트 준비 중..."
+    mkdir -p "$mount_point" >/dev/null 2>&1
+    
+    if mkfs.ext4 "/dev/$usb_device" >/dev/null 2>&1; then
+        log_success "USB 장치 포맷 완료"
+    else
+        log_warn "포맷에 실패했지만 계속 진행합니다"
+    fi
+    
+    # fstab 설정
+    if ! grep -q "/dev/$usb_device" /etc/fstab; then
+        echo "/dev/$usb_device $mount_point ext4 defaults 0 0" >> /etc/fstab
+        log_success "fstab에 마운트 정보 추가됨"
+    else
+        log_info "이미 fstab에 등록되어 있습니다"
+    fi
+    
+    systemctl daemon-reload
+    if mount -a >/dev/null 2>&1; then
+        log_success "USB 장치 마운트 완료"
+    else
+        log_error "마운트에 실패했습니다"
+        return 1
+    fi
+    
+    # Proxmox 저장소 등록
+    if pvesm add dir $USB_MOUNT --path "$mount_point" --content images,iso,vztmpl,backup,rootdir >/dev/null 2>&1; then
+        log_success "Proxmox 저장소로 등록 완료: $USB_MOUNT"
+    else
+        log_warn "Proxmox 저장소 등록에 실패했지만 마운트는 완료되었습니다"
+    fi
+}
+
 # 메인 실행 함수
 main() {
     show_header "Proxmox Disk Partition 자동화"
