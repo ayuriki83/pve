@@ -16,9 +16,9 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 # 로깅 함수
-log_success() { echo -e "${GREEN}✅ [$(date '+%Y-%m-%d %H:%M:%S')] $*${NC}" }
-log_error() { echo -e "${RED}❌ [$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $*${NC}" >&2 }
-log_warn() { echo -e "${YELLOW}⚠️ [$(date '+%Y-%m-%d %H:%M:%S')] WARNING: $*${NC}" }
+log_success() { echo -e "${GREEN}✅ [$(date '+%Y-%m-%d %H:%M:%S')] $*${NC}"; }
+log_error() { echo -e "${RED}❌ [$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $*${NC}" >&2; }
+log_warn() { echo -e "${YELLOW}⚠️ [$(date '+%Y-%m-%d %H:%M:%S')] WARNING: $*${NC}"; }
 log_info() { echo -e "${CYAN}ℹ️ [$(date '+%Y-%m-%d %H:%M:%S')] $*${NC}" }
 log_step() { echo -e "${BLUE}🔄 [$(date '+%Y-%m-%d %H:%M:%S')] $*${NC}" }
 
@@ -82,13 +82,15 @@ fi
 # root 파티션 크기 확장
 expand_root_partition() {
     log_step "단계 1/3: root 파티션 크기 확장"
-    
-    local before_size=$(lsblk -b /dev/mapper/pve-root -o SIZE -n | awk '{printf "%.2f", $1/1024/1024/1024}')
+
+    local before_size
+    before_size=$(lsblk -b /dev/mapper/pve-root -o SIZE -n | awk '{printf "%.2f", $1/1024/1024/1024}')
     log_info "확장 전 용량: ${before_size} GB"
     
     if lvresize -l +100%FREE /dev/pve/root >/dev/null 2>&1; then
         if resize2fs /dev/mapper/pve-root >/dev/null 2>&1; then
-            local after_size=$(lsblk -b /dev/mapper/pve-root -o SIZE -n | awk '{printf "%.2f", $1/1024/1024/1024}')
+            local after_size
+            after_size=$(lsblk -b /dev/mapper/pve-root -o SIZE -n | awk '{printf "%.2f", $1/1024/1024/1024}')
             log_success "root 파티션 확장 완료: ${before_size} GB → ${after_size} GB"
         else
             log_warn "파일시스템 크기 조정에 실패했지만 계속 진행합니다"
@@ -211,7 +213,7 @@ main() {
     show_header "Proxmox 초기설정 자동화"
     
     log_info "시스템 정보"
-    echo -e "${CYAN}  - OS: $(cat /etc/os-release | grep PRETTY_NAME | cut -d'"' -f2)${NC}"
+    echo -e "${CYAN}  - OS: $(grep PRETTY_NAME /etc/os-release | cut -d'"' -f2)${NC}"
     echo -e "${CYAN}  - 커널: $(uname -r)${NC}"
     echo -e "${CYAN}  - 메모리: $(free -h | awk '/^Mem:/ {print $2}')${NC}"
     echo -e "${CYAN}  - 디스크 사용량: $(df -h / | awk 'NR==2 {print $3"/"$2" ("$5")"}')${NC}"
