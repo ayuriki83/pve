@@ -507,67 +507,54 @@ setup_usb_devices() {
 # 4. Proxmox 백업공간 선택 함수
 setup_backup_selection() {
     log_step "단계 4/5: Proxmox 백업공간 선택"
-    
+
     echo
-    log_info "현재 설정된 저장소 목록:"
+    log_info "현재 설정된 디렉토리 저장소 경로 목록:"
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    
-    local available_storages=()
-    local storage_paths=()
-    local counter=1
-    
-    # Directory 타입 저장소만 필터링
-    while IFS= read -r line; do
-        if [[ $line =~ ^Name ]]; then
-            continue
-        fi
-        
-        local storage_name=$(echo "$line" | awk '{print $1}')
-        local storage_type=$(echo "$line" | awk '{print $2}')
-        
-        if [[ "$storage_type" == "dir" ]]; then
-            local storage_path=$(pvesm path "$storage_name" 2>/dev/null | head -1 | cut -d'/' -f1-3)
-            if [[ -n "$storage_path" ]]; then
-                available_storages+=("$storage_name")
-                storage_paths+=("$storage_path")
-                echo -e "${GREEN}  $counter) $storage_name ($storage_path)${NC}"
-                ((counter++))
-            fi
-        fi
-    done < <(pvesm status)
-    
-    echo -e "${CYAN}  $counter) 백업 설정 안함${NC}"
-    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    
-    if [[ ${#available_storages[@]} -eq 0 ]]; then
-        log_warn "백업 가능한 저장소가 없습니다"
+
+    # /etc/pve/storage.cfg에서 dir 타입 저장소 경로 추출
+    mapfile -t dir_paths < <(grep -A1 "^dir: " /etc/pve/storage.cfg | grep "/mnt" | awk '{print $2}')
+
+    if [[ ${#dir_paths[@]} -eq 0 ]]; then
+        log_warn "디렉토리 타입 저장소를 찾을 수 없습니다"
+        echo
         return 0
     fi
-    
+
+    local counter=1
+    for path in "${dir_paths[@]}"; do
+        echo -e "${GREEN}  $counter) $path${NC}"
+        ((counter++))
+    done
+
+    echo -e "${GREEN}  $counter) 백업 설정 안함${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+
     echo -ne "${CYAN}백업 저장소를 선택하세요 [1-$counter]: ${NC}"
-    read backup_choice
-    
-    if [[ "$backup_choice" -ge 1 ]] && [[ "$backup_choice" -lt $counter ]]; then
-        local selected_index=$((backup_choice - 1))
-        local selected_storage="${available_storages[$selected_index]}"
-        local selected_path="${storage_paths[$selected_index]}"
-        
-        log_success "선택된 백업 저장소: $selected_storage ($selected_path)"
-        
+    read -r backup_choice
+
+    # 숫자 입력 유효성 및 범위 체크
+    if ! [[ "$backup_choice" =~ ^[0-9]+$ ]]; then
+        log_warn "잘못된 입력입니다. 백업 설정을 건너뜁니다"
+        return 0
+    fi
+
+    if (( backup_choice == counter )); then
+        log_info "백업 설정을 하지 않습니다"
+        return 0
+    elif (( backup_choice >= 1 && backup_choice < counter )); then
+        local selected_path="${dir_paths[backup_choice-1]}"
+        log_success "선택된 백업 저장소 경로: $selected_path"
+
         # pve.env 파일에 BACKUP 변수 추가/업데이트
         if [[ -f "$ENV_FILE" ]]; then
-            # 기존 BACKUP 변수 제거
             sed -i '/^BACKUP=/d' "$ENV_FILE"
         fi
-        
-        # 새 BACKUP 변수 추가
+
         echo "BACKUP=\"$selected_path\"" >> "$ENV_FILE"
         log_success "pve.env 파일에 BACKUP 변수가 저장되었습니다: $selected_path"
-        
-    elif [[ "$backup_choice" -eq $counter ]]; then
-        log_info "백업 설정을 하지 않습니다"
     else
-        log_warn "잘못된 선택입니다. 백업 설정을 건너뜁니다"
+        log_warn "백업 저장소 선택 범위가 유효하지 않습니다. 설정을 건너뜁니다"
     fi
 }
 
