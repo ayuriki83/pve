@@ -532,7 +532,7 @@ main() {
     
     # 파일 경로 설정
     local nfo_file="./docker.nfo"
-    local env_file="./docker.env"
+    local env_file="./lxc.env"
     
     # 전역 변수 선언
     declare -A ENV_VALUES
