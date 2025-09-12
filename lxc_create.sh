@@ -150,7 +150,9 @@ UNPRIVILEGED=${UNPRIVILEGED:-0}
 RCLONE_GB=${RCLONE_GB:-256}
 RCLONE_SIZE="${RCLONE_GB}G"
 LV_RCLONE=${LV_RCLONE:-"lv-rclone"}
-MOUNT_POINT=${MOUNT_POINT:-"/mnt/rclone"}
+MNT_RCLONE=${MNT_RCLONE:-"/mnt/rclone"}
+DIR_BACKUP=${DIR_BACKUP}
+MNT_BACKUP=${MNT_BACKUP:-"/mnt/backup"}
 
 # Root 권한 확인
 if [[ $EUID -ne 0 ]]; then
@@ -301,15 +303,27 @@ configure_rclone_and_lxc() {
     
     # LXC 설정 추가
     log_info "LXC 컨테이너 설정 추가 중..."
-    
-    cat >> "$lxc_conf" <<EOF
-mp0: $lv_path,mp=$MOUNT_POINT
+
+    if [ -z "$BACKUP" ]; then
+        cat >> "$lxc_conf" <<EOF
+mp0: $lv_path,mp=$MNT_RCLONE
 lxc.cgroup2.devices.allow: c 10:229 rwm
 lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file
 lxc.apparmor.profile: unconfined
 lxc.cgroup2.devices.allow: a
 lxc.cap.drop:
 EOF
+    else
+        cat >> "$lxc_conf" <<EOF
+mp0: $lv_path,mp=$MNT_RCLONE
+mp1: $DIR_BACKUP,mp=$MNT_BACKUP
+lxc.cgroup2.devices.allow: c 10:229 rwm
+lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file
+lxc.apparmor.profile: unconfined
+lxc.cgroup2.devices.allow: a
+lxc.cap.drop:
+EOF
+    fi
     
     log_success "기본 LXC 설정 추가 완료"
 }
