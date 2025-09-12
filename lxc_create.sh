@@ -192,7 +192,25 @@ configure_network() {
         read user_ip
         user_ip=${user_ip:-$suggested_ip}
         
+        # IP 형식 검증
         if validate_ip "$user_ip"; then
+            # IP 충돌 검사 추가
+            if ping -c 1 -W 1 "$user_ip" >/dev/null 2>&1; then
+                log_warn "IP $user_ip가 이미 사용 중입니다. 다른 IP를 선택해주세요"
+                continue
+            fi
+            
+            # 게이트웨이와 같은 서브넷인지 검증
+            local user_subnet=$(echo $user_ip | awk -F. '{print $1"."$2"."$3}')
+            local gateway_subnet=$(echo $gateway | awk -F. '{print $1"."$2"."$3}')
+            
+            if [[ "$user_subnet" != "$gateway_subnet" ]]; then
+                log_warn "입력된 IP($user_ip)가 게이트웨이($gateway)와 다른 서브넷입니다"
+                if ! confirm_action "계속 진행하시겠습니까?"; then
+                    continue
+                fi
+            fi
+            
             export IP="${user_ip}/24"
             export GATEWAY="$gateway"
             log_success "네트워크 설정 완료: $user_ip (게이트웨이: $gateway)"
