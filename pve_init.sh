@@ -72,9 +72,6 @@ ENV_FILE="$SCRIPT_DIR/pve.env"
 # 설정 파일 로드
 load_config "$ENV_FILE"
 
-# 환경변수 기본값 설정
-USB_MOUNT=${USB_MOUNT:-"usb-backup"}
-
 # Root 권한 확인
 if [[ $EUID -ne 0 ]]; then
     log_error "이 스크립트는 root 권한이 필요합니다"
@@ -97,11 +94,8 @@ main() {
     
     # 2단계: 보안 설정
     configure_security
-    
-    # 3단계: USB 저장소 설정
-    configure_usb_storage
-    
-    # 4단계: GPU 설정
+        
+    # 3단계: GPU 설정
     configure_gpu
     
     # 완료 메시지
@@ -122,7 +116,7 @@ main() {
 
 # root 파티션 크기 확장
 expand_root_partition() {
-    log_step "단계 1/4: root 파티션 크기 확장"
+    log_step "단계 1/3: root 파티션 크기 확장"
     
     local before_size=$(lsblk -b /dev/mapper/pve-root -o SIZE -n | awk '{printf "%.2f", $1/1024/1024/1024}')
     log_info "확장 전 용량: ${before_size} GB"
@@ -141,7 +135,7 @@ expand_root_partition() {
 
 # 보안 설정
 configure_security() {
-    log_step "단계 2/4: 보안 설정"
+    log_step "단계 2/3: 보안 설정"
     
     # AppArmor 비활성화
     log_info "AppArmor 비활성화 중..."
@@ -190,74 +184,9 @@ configure_security() {
     done
 }
 
-# USB 저장소 설정
-configure_usb_storage() {
-    log_step "단계 3/4: USB 저장소 설정 (선택사항)"
-    
-    echo
-    if ! confirm_action "USB 장치를 백업 저장소로 사용하시겠습니까?" "n"; then
-        log_info "USB 저장소 설정을 건너뜁니다"
-        return 0
-    fi
-    
-    echo
-    log_info "현재 시스템의 블록 장치 목록:"
-    lsblk -o NAME,SIZE,TYPE,MOUNTPOINT | grep -E 'NAME|disk|part' | while IFS= read -r line; do
-        echo -e "${CYAN}  $line${NC}"
-    done
-    
-    echo
-    echo -ne "${CYAN}USB 장치 이름을 입력하세요 (예: sda1): ${NC}"
-    read usb_device
-    
-    if [[ -z "$usb_device" ]]; then
-        log_warn "USB 장치 이름이 입력되지 않았습니다. 건너뜁니다"
-        return 0
-    fi
-    
-    if [[ ! -b "/dev/$usb_device" ]]; then
-        log_error "장치 /dev/$usb_device를 찾을 수 없습니다"
-        return 1
-    fi
-    
-    local mount_point="/mnt/$USB_MOUNT"
-    
-    log_info "USB 장치 /dev/$usb_device를 $mount_point에 마운트 준비 중..."
-    mkdir -p "$mount_point" >/dev/null 2>&1
-    
-    if mkfs.ext4 "/dev/$usb_device" >/dev/null 2>&1; then
-        log_success "USB 장치 포맷 완료"
-    else
-        log_warn "포맷에 실패했지만 계속 진행합니다"
-    fi
-    
-    # fstab 설정
-    if ! grep -q "/dev/$usb_device" /etc/fstab; then
-        echo "/dev/$usb_device $mount_point ext4 defaults 0 0" >> /etc/fstab
-        log_success "fstab에 마운트 정보 추가됨"
-    else
-        log_info "이미 fstab에 등록되어 있습니다"
-    fi
-    
-    systemctl daemon-reload
-    if mount -a >/dev/null 2>&1; then
-        log_success "USB 장치 마운트 완료"
-    else
-        log_error "마운트에 실패했습니다"
-        return 1
-    fi
-    
-    # Proxmox 저장소 등록
-    if pvesm add dir $USB_MOUNT --path "$mount_point" --content images,iso,vztmpl,backup,rootdir >/dev/null 2>&1; then
-        log_success "Proxmox 저장소로 등록 완료: $USB_MOUNT"
-    else
-        log_warn "Proxmox 저장소 등록에 실패했지만 마운트는 완료되었습니다"
-    fi
-}
-
 # GPU 설정
 configure_gpu() {
-    log_step "단계 4/4: GPU 설정"
+    log_step "단계 3/3: GPU 설정"
     
     echo
     log_info "GPU 종류를 선택하세요:"
