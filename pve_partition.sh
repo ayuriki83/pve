@@ -546,13 +546,13 @@ setup_backup_selection() {
         local selected_path="${dir_paths[backup_choice-1]}"
         log_success "선택된 백업 저장소 경로: $selected_path"
 
-        # pve.env 파일에 BACKUP 변수 추가/업데이트
+        # pve.env 파일에 DIR_BACKUP 변수 추가/업데이트
         if [[ -f "$ENV_FILE" ]]; then
-            sed -i '/^BACKUP=/d' "$ENV_FILE"
+            sed -i '/^DIR_BACKUP=/d' "$ENV_FILE"
         fi
 
-        echo "BACKUP=\"$selected_path\"" >> "$ENV_FILE"
-        log_success "pve.env 파일에 BACKUP 변수가 저장되었습니다: $selected_path"
+        echo "DIR_BACKUP=\"$selected_path\"" >> "$ENV_FILE"
+        log_success "pve.env 파일에 DIR_BACKUP 변수가 저장되었습니다: $selected_path"
     else
         log_warn "백업 저장소 선택 범위가 유효하지 않습니다. 설정을 건너뜁니다"
     fi
