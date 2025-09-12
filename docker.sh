@@ -134,7 +134,14 @@ setup_environment_variables() {
             
             read -r val
             env_values_ref[$key]=$val
-            echo "$key=\"$val\"" >> "$env_file"
+            
+            # 중복 방지하여 환경변수 저장
+            if grep -q "^$key=" "$env_file"; then
+                sed -i "s/^$key=.*/$key=\"$val\"/" "$env_file"
+            else
+                echo "$key=\"$val\"" >> "$env_file"
+            fi
+            
             ((new_vars_count++))
         fi
     done
