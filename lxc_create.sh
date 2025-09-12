@@ -339,11 +339,14 @@ start_and_initialize() {
     
     # GPU_CHOICE 환경변수를 lxc.env에 추가 (빈 값도 포함)
     if grep -q "^GPU_CHOICE=" "$SCRIPT_DIR/lxc.env"; then
+        # 기존 항목이 있으면 교체
         sed -i "s/^GPU_CHOICE=.*/GPU_CHOICE=\"$GPU_CHOICE\"/" "$SCRIPT_DIR/lxc.env"
+        log_info "기존 GPU 설정을 업데이트: ${GPU_CHOICE:-'없음'}"
     else
+        # 기존 항목이 없으면 추가
         echo "GPU_CHOICE=\"$GPU_CHOICE\"" >> "$SCRIPT_DIR/lxc.env"
+        log_info "GPU 설정을 환경변수 파일에 추가: ${GPU_CHOICE:-'없음'}"
     fi
-    log_info "GPU 설정을 환경변수 파일에 저장: ${GPU_CHOICE:-'없음'}"
     
     # 필요한 파일들 업로드
     local files_to_upload=(
