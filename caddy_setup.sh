@@ -56,7 +56,7 @@ show_service_list() {
     echo
     log_info "$title"
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    printf "${YELLOW}%-8s %-25s %s${NC}\n" "순번" "서브도메인" "리버스 프록시"
+    printf "${YELLOW}%-8s %-35s %s${NC}\n" "순번" "서브도메인" "리버스 프록시"
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     
     local count=1
@@ -76,7 +76,7 @@ show_service_list() {
             }
         }" "$CADDYFILE")
 
-        printf "${CYAN}%-8d %-25s %s${NC}\n" "$count" "${item}.${BASE_DOMAIN}" "$rp_addr"
+        printf "${CYAN}%-6d %-30s %s${NC}\n" "$count" "${item}.${BASE_DOMAIN}" "$rp_addr"
         count=$((count+1))
     done
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
