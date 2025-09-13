@@ -4,7 +4,7 @@
 # Proxmox Ubuntu LXC 컨테이너 설치 자동화
 ##################################################
 
-set -e
+#set -e
 
 # 색상 정의
 RED='\033[0;31m'
@@ -248,7 +248,7 @@ create_container() {
     echo -e "${CYAN}  - 저장소: $STORAGE${NC}"
     echo -e "${CYAN}  - 루트 파일시스템: ${ROOTFS}GB${NC}"
     echo -e "${CYAN}  - 메모리: ${MEMORY_GB}GB${NC}"
-    echo -e "${CYAN}  - SWAP: ${SWAP}${NC}"
+    echo -e "${CYAN}  - 스왑: ${SWAP}${NC}"
     echo -e "${CYAN}  - CPU 코어: $CORES${NC}"
     echo -e "${CYAN}  - CPU 제한: $CPU_LIMIT${NC}"
     echo -e "${CYAN}  - 권한 모드: $([ $UNPRIVILEGED -eq 1 ] && echo "Unprivileged" || echo "Privileged")${NC}"
