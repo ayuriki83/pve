@@ -169,7 +169,7 @@ CONFIG_DIR="${CADDY_DIR}/conf"
 CADDYFILE="${CONFIG_DIR}/Caddyfile"
 DOCKER_COMPOSE_FILE="/docker/caddy/docker-compose.yml"
 SCRIPT_DIR=$(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
-PROXMOX_CONF="${SCRIPT_DIR}/proxmox.conf"
+LXC_ENV="${SCRIPT_DIR}/lxc.env"
 
 # 서비스 추가 함수
 add_services() {
@@ -182,7 +182,7 @@ add_services() {
     fi
     
     # 설정 파일 로드
-    if ! load_config "$PROXMOX_CONF"; then
+    if ! load_config "$LXC_ENV"; then
         exit 3
     fi
     
@@ -296,7 +296,7 @@ remove_services() {
     fi
     
     # 설정 파일 로드
-    if ! load_config "$PROXMOX_CONF"; then
+    if ! load_config "$LXC_ENV"; then
         exit 3
     fi
     
@@ -428,7 +428,7 @@ main() {
     log_info "스크립트 정보"
     echo -e "${CYAN}  - Caddy 설정 디렉토리: $CONFIG_DIR${NC}"
     echo -e "${CYAN}  - Caddyfile 경로: $CADDYFILE${NC}"
-    echo -e "${CYAN}  - 설정 파일: $PROXMOX_CONF${NC}"
+    echo -e "${CYAN}  - 설정 파일: $LXC_ENV${NC}"
     
     # 메뉴 모드 또는 인자 모드 처리
     if [[ $# -lt 1 ]]; then
