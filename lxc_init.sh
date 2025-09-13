@@ -322,25 +322,21 @@ create_docker_network() {
 configure_firewall() {
     log_step "단계 10/$TOTAL_STEPS: UFW 방화벽 설정"
     
-    log_info "UFW 방화벽 설치 중..."
-    if apt-get install -y ufw >/dev/null 2>&1; then
-        log_success "UFW 설치 완료"
-    else
-        log_error "UFW 설치에 실패했습니다"
-        exit 1
-    fi
-    
     log_info "방화벽 규칙 설정 중..."
     
     # 개별 포트 허용
     local port_count=0
     for port in $ALLOW_PORTS; do
-        # 포트 형식 검증 추가
-        if [[ "$port" =~ ^[0-9]+(/tcp|/udp)?$ ]] && ufw allow $port >/dev/null 2>&1; then
-            ((port_count++))
-            log_info "포트 $port 허용 완료"
+        # 포트 형식 검증
+        if [[ "$port" =~ ^[0-9]+(/tcp|/udp)?$ ]]; then
+            if ufw allow "$port" >/dev/null 2>&1; then
+                ((port_count++))
+                log_info "포트 $port 허용 완료"
+            else
+                log_warn "포트 $port 설정 실패"
+            fi
         else
-            log_warn "포트 $port 설정 실패"
+            log_warn "잘못된 포트 형식: $port"
         fi
     done
     log_success "개별 포트 허용 완료: $port_count개"
@@ -351,13 +347,22 @@ configure_firewall() {
     if [[ -n "$gateway_ip" && "$gateway_ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
         internal_net=$(echo "$gateway_ip" | awk -F. '{print $1"."$2"."$3".0/24"}')
     fi
-    if [[ -n "$internal_net" ]] && ufw allow from $internal_net >/dev/null 2>&1; then
-        log_success "내부망 허용 완료: $internal_net"
+    
+    if [[ -n "$internal_net" ]]; then
+        if ufw allow from "$internal_net" >/dev/null 2>&1; then
+            log_success "내부망 허용 완료: $internal_net"
+        else
+            log_warn "내부망 설정 실패: $internal_net"
+        fi
+    else
+        log_warn "내부망 IP를 찾을 수 없습니다"
     fi
     
     # Docker 네트워크 허용
-    if ufw allow from $DOCKER_BRIDGE_NET >/dev/null 2>&1; then
+    if ufw allow from "$DOCKER_BRIDGE_NET" >/dev/null 2>&1; then
         log_success "Docker 네트워크 허용 완료: $DOCKER_BRIDGE_NET"
+    else
+        log_warn "Docker 네트워크 허용 실패: $DOCKER_BRIDGE_NET"
     fi
     
     # UFW 활성화
@@ -398,7 +403,7 @@ configure_network_rules() {
     # NAT 규칙 추가
     log_info "NAT 규칙 설정 중..."
     if ! iptables -t nat -C POSTROUTING -s "$DOCKER_BRIDGE_NET" -o "$nat_iface" -j MASQUERADE 2>/dev/null; then
-        if iptables -t nat -A POSTROUTING -s "$DOCKER_BRIDGE_NET" -o "$nat_iface" -j MASQUERADE; then
+        if iptables -t nat -A POSTROUTING -s "$DOCKER_BRIDGE_NET" -o "$nat_iface" -j MASQUERADE 2>/dev/null; then
             log_success "NAT 규칙 추가 완료"
         else
             log_warn "NAT 규칙 추가에 실패했습니다"
@@ -412,8 +417,8 @@ configure_network_rules() {
     if [[ -f "$ufw_after_rules" ]]; then
         log_info "UFW Docker 규칙 설정 중..."
         
-        if ! grep -q "^:DOCKER-USER" $ufw_after_rules 2>/dev/null; then
-            if cp $ufw_after_rules ${ufw_after_rules}.bak 2>/dev/null; then
+        if ! grep -q "^:DOCKER-USER" "$ufw_after_rules" 2>/dev/null; then
+            if cp "$ufw_after_rules" "${ufw_after_rules}".bak 2>/dev/null; then
                 log_info "기존 UFW 규칙 백업 완료"
             fi
             
