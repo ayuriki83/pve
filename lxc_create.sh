@@ -144,6 +144,7 @@ STORAGE=${LVM_NAME:-"lvm-main"}
 ROOTFS=${ROOTFS:-128}
 MEMORY_GB=${MEMORY_GB:-18}
 MEMORY=$((MEMORY_GB * 1024))
+SWAP=${SWAP:-2048}
 CORES=${CORES:-6}
 CPU_LIMIT=${CPU_LIMIT:-6}
 UNPRIVILEGED=${UNPRIVILEGED:-0}
@@ -247,6 +248,7 @@ create_container() {
     echo -e "${CYAN}  - 저장소: $STORAGE${NC}"
     echo -e "${CYAN}  - 루트 파일시스템: ${ROOTFS}GB${NC}"
     echo -e "${CYAN}  - 메모리: ${MEMORY_GB}GB${NC}"
+    echo -e "${CYAN}  - SWAP: ${SWAP}${NC}"
     echo -e "${CYAN}  - CPU 코어: $CORES${NC}"
     echo -e "${CYAN}  - CPU 제한: $CPU_LIMIT${NC}"
     echo -e "${CYAN}  - 권한 모드: $([ $UNPRIVILEGED -eq 1 ] && echo "Unprivileged" || echo "Privileged")${NC}"
@@ -259,6 +261,7 @@ create_container() {
         --storage $STORAGE \
         --rootfs $ROOTFS \
         --memory $MEMORY \
+        --swap $SWAP \
         --cores $CORES \
         --cpulimit $CPU_LIMIT \
         --net0 name=eth0,bridge=vmbr0,ip=$IP,gw=$GATEWAY \
