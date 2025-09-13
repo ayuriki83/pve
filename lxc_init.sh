@@ -342,8 +342,12 @@ configure_firewall() {
     log_success "개별 포트 허용 완료: $port_count개"
     
     # 내부망 허용
-    local internal_net=$(ip route | awk '/default/ {print $3}' | awk -F. '{print $1"."$2"."$3".0/24"}')
-    if ufw allow from $internal_net >/dev/null 2>&1; then
+    local gateway_ip=$(ip route | awk '/default/ {print $3; exit}')
+    local internal_net=""
+    if [[ -n "$gateway_ip" && "$gateway_ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+        internal_net=$(echo "$gateway_ip" | awk -F. '{print $1"."$2"."$3".0/24"}')
+    fi
+    if [[ -n "$internal_net" ]] && ufw allow from $internal_net >/dev/null 2>&1; then
         log_success "내부망 허용 완료: $internal_net"
     fi
     
@@ -353,10 +357,15 @@ configure_firewall() {
     fi
     
     # UFW 활성화
-    if ufw --force enable >/dev/null 2>&1; then
-        log_success "UFW 방화벽 활성화 완료"
+    local ufw_status=$(ufw status 2>/dev/null | head -n1)
+    if [[ "$ufw_status" != "Status: active" ]]; then
+        if ufw --force enable >/dev/null 2>&1; then
+            log_success "UFW 방화벽 활성화 완료"
+        else
+            log_error "UFW 활성화에 실패했습니다"
+        fi
     else
-        log_error "UFW 활성화에 실패했습니다"
+        log_success "UFW가 이미 활성화되어 있습니다"
     fi
 }
 
