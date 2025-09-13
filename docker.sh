@@ -510,6 +510,8 @@ finalize_setup() {
     local files_to_chmod=(
         "/docker/rclone-after-service.sh"
         "/docker/docker-all-start.sh"
+        "/docker/docker-all-stop.sh"
+        "/docker/docker-backup.sh"
     )
     
     local chmod_count=0
@@ -539,6 +541,9 @@ finalize_setup() {
     fi
     
     log_success "권한 설정 완료: $chmod_count 개의 파일"
+
+    (crontab -l 2>/dev/null; echo "0 1 * * * /docker/docker-backup.sh") | crontab -
+    log_success "crontab 명령어 갱신"
 }
 
 # 메인 실행 함수
