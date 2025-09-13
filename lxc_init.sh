@@ -335,8 +335,12 @@ configure_firewall() {
     # 개별 포트 허용
     local port_count=0
     for port in $ALLOW_PORTS; do
-        if ufw allow $port >/dev/null 2>&1; then
+        # 포트 형식 검증 추가
+        if [[ "$port" =~ ^[0-9]+(/tcp|/udp)?$ ]] && ufw allow $port >/dev/null 2>&1; then
             ((port_count++))
+            log_info "포트 $port 허용 완료"
+        else
+            log_warn "포트 $port 설정 실패"
         fi
     done
     log_success "개별 포트 허용 완료: $port_count개"
@@ -386,11 +390,15 @@ configure_network_rules() {
     log_step "단계 12/$TOTAL_STEPS: 네트워크 NAT 및 UFW 규칙 설정"
     
     local nat_iface=$(ip route | awk '/default/ {print $5; exit}')
+    if [[ -z "$nat_iface" ]]; then
+        log_warn "기본 네트워크 인터페이스를 찾을 수 없습니다"
+        return 1
+    fi
     
     # NAT 규칙 추가
     log_info "NAT 규칙 설정 중..."
-    if ! iptables -t nat -C POSTROUTING -s $DOCKER_BRIDGE_NET -o $nat_iface -j MASQUERADE 2>/dev/null; then
-        if iptables -t nat -A POSTROUTING -s $DOCKER_BRIDGE_NET -o $nat_iface -j MASQUERADE; then
+    if ! iptables -t nat -C POSTROUTING -s "$DOCKER_BRIDGE_NET" -o "$nat_iface" -j MASQUERADE 2>/dev/null; then
+        if iptables -t nat -A POSTROUTING -s "$DOCKER_BRIDGE_NET" -o "$nat_iface" -j MASQUERADE; then
             log_success "NAT 규칙 추가 완료"
         else
             log_warn "NAT 규칙 추가에 실패했습니다"
@@ -401,26 +409,30 @@ configure_network_rules() {
     
     # UFW Docker 규칙 설정
     local ufw_after_rules="/etc/ufw/after.rules"
-    log_info "UFW Docker 규칙 설정 중..."
-    
-    if ! grep -q "^:DOCKER-USER" $ufw_after_rules 2>/dev/null; then
-        if cp $ufw_after_rules ${ufw_after_rules}.bak 2>/dev/null; then
-            log_info "기존 UFW 규칙 백업 완료"
-        fi
+    if [[ -f "$ufw_after_rules" ]]; then
+        log_info "UFW Docker 규칙 설정 중..."
         
-        if sed -i '/^COMMIT/i :DOCKER-USER - [0:0]\n-A DOCKER-USER -j RETURN' $ufw_after_rules 2>/dev/null; then
-            log_success "UFW Docker 규칙 추가 완료"
+        if ! grep -q "^:DOCKER-USER" $ufw_after_rules 2>/dev/null; then
+            if cp $ufw_after_rules ${ufw_after_rules}.bak 2>/dev/null; then
+                log_info "기존 UFW 규칙 백업 완료"
+            fi
             
-            if ufw reload >/dev/null 2>&1; then
-                log_success "UFW 규칙 재로드 완료"
+            if sed -i '/^COMMIT/i :DOCKER-USER - [0:0]\n-A DOCKER-USER -j RETURN' "$ufw_after_rules" 2>/dev/null; then
+                log_success "UFW Docker 규칙 추가 완료"
+                
+                if ufw reload >/dev/null 2>&1; then
+                    log_success "UFW 규칙 재로드 완료"
+                else
+                    log_warn "UFW 재로드에 실패했습니다"
+                fi
             else
-                log_warn "UFW 재로드에 실패했습니다"
+                log_warn "UFW Docker 규칙 추가에 실패했습니다"
             fi
         else
-            log_warn "UFW Docker 규칙 추가에 실패했습니다"
+            log_info "UFW Docker 규칙이 이미 존재합니다"
         fi
     else
-        log_info "UFW Docker 규칙이 이미 존재합니다"
+        log_warn "UFW after.rules 파일을 찾을 수 없습니다"
     fi
 }
 
