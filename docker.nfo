@@ -40,7 +40,6 @@ mkdir -p /docker/portainer
 __CMD_END__
 __EOFS_START__
 __EOF_START__ /docker/portainer/docker-compose.yml
-version: "3.8"
 services:
   portainer:
     image: portainer/portainer-ce:latest
@@ -161,7 +160,6 @@ mkdir -p /docker/rclone && mkdir -p /mnt/rclone/{Cache,Data} && mkdir -p /mnt/ba
 __CMD_END__
 __EOFS_START__
 __EOF_START__ /docker/rclone/docker-compose.yml
-version: '3'
 services:
   rclone:
     container_name: rclone
@@ -387,7 +385,6 @@ mkdir -p /docker/ff_plex/ff && mkdir -p /docker/ff_plex/plex/{config,transcode}
 __CMD_END__
 __EOFS_START__
 __EOF_START__ /docker/ff_plex/docker-compose.yml
-version: '3'
 services: 
   ff:
     container_name: ff
@@ -486,7 +483,6 @@ mkdir -p /docker/jellyfin/{cache,config}
 __CMD_END__
 __EOFS_START__
 __EOF_START__ /docker/jellyfin/docker-compose.yml
-version: "3.7"
 services:
   jellyfin:
     image: jellyfin/jellyfin:latest
@@ -529,7 +525,6 @@ mkdir -p /docker/kavita
 __CMD_END__
 __EOFS_START__
 __EOF_START__ /docker/kavita/docker-compose.yml
-version: '3.3'
 services:
   kavita:
     container_name: kavita
@@ -577,7 +572,6 @@ mkdir -p /docker/beszel
 __CMD_END__
 __EOFS_START__
 __EOF_START__ /docker/beszel/docker-compose.yml
-version: "3.8"
 services:
   beszel:
     image: henrygd/beszel:latest
@@ -621,7 +615,6 @@ mkdir -p /docker/uptime-kuma
 __CMD_END__
 __EOFS_START__
 __EOF_START__ /docker/uptime-kuma/docker-compose.yml
-version: '3.3'
 services:
   uptime-kuma:
     container_name: uptime-kuma
@@ -660,7 +653,6 @@ mkdir -p /docker/vaultwarden
 __CMD_END__
 __EOFS_START__
 __EOF_START__ /docker/vaultwarden/docker-compose.yml
-version: '3.1'
 services:
   vaultwarden:
     container_name: vaultwarden
