@@ -45,7 +45,5 @@ chmod +x docker.sh && chmod +x caddy_setup.sh
 ./docker.sh
 
 # 5단계: Caddy 서비스 관리 (필요시)
-./caddy_setup.sh add    # 추가 서비스 등록
-./caddy_setup.sh remove # 서비스 삭제
-
+./caddy_setup.sh
 ```
