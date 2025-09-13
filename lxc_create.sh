@@ -128,7 +128,7 @@ show_gpu_options() {
 
 # 설정 파일 위치
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_FILE="$SCRIPT_DIR/lxc.env"
+ENV_FILE="$SCRIPT_DIR/pve.env"
 
 # 설정 파일 로드
 load_config "$ENV_FILE"
