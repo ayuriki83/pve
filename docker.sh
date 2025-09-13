@@ -35,38 +35,29 @@ show_header() {
 
 # 서비스 목록 테이블 출력 함수
 show_services_table() {
-    local docker_names=("${@:1:$((($#-1)/2))}")
-    local docker_req=("${@:$(((($#-1)/2)+1)):$((($#-1)/2))}")
-    local optional_index=("${@:$#}")
-    
+    local names_count=$(( ($# - 1) / 2 ))
+    local docker_names=("${@:1:$names_count}")
+    local docker_req=("${@:$((names_count + 1)):$names_count}")
+
     echo
     log_info "사용 가능한 Docker 서비스 목록"
-    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    printf "${YELLOW}| %-5s | %-20s | %-10s | %-15s |${NC}\n" "번호" "서비스명" "필수여부" "설명"
-    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    printf "${YELLOW}| %-4s | %-24s | %-8s |${NC}\n" "번호" "서비스명" "자동설치"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+
     local opt_idx=1
     for i in "${!docker_names[@]}"; do
         local name="${docker_names[i]}"
         local req="${docker_req[i]}"
-        local no=""
-        local status=""
-        local description=""
-        
+
         if [[ "$req" == "true" ]]; then
-            no="필수"
-            status="Required"
-            description="자동 설치됨"
+            printf "${CYAN}| %-4s | %-20s | %-8s |${NC}\n" "" "$name" "O"
         else
-            no="$opt_idx"
-            status="Optional"
-            description="선택 설치"
+            printf "${CYAN}| %-4s | %-20s | %-8s |${NC}\n" "$opt_idx" "$name" "X"
             ((opt_idx++))
         fi
-        
-        printf "${CYAN}| %-5s | %-20s | %-10s | %-15s |${NC}\n" "$no" "$name" "$status" "$description"
     done
-    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 }
 
 # 파일 존재 확인 함수
@@ -100,6 +91,10 @@ setup_environment_variables() {
     if [[ -f "$env_file" ]]; then
         log_info "기존 환경 설정 로드 중..."
         while IFS='=' read -r key val; do
+            # 주석, 빈 라인, # 문자가 포함된 라인 건너뛰기
+            [[ "$key" =~ ^[[:space:]]*#.*$ ]] && continue
+            [[ -z "$key" ]] && continue
+            
             key=${key//[[:space:]]/}
             val=$(echo "$val" | sed -e 's/^"//' -e 's/"$//')
             env_values_ref[$key]=$val
@@ -136,10 +131,16 @@ setup_environment_variables() {
             env_values_ref[$key]=$val
             
             # 중복 방지하여 환경변수 저장
-            if grep -q "^$key=" "$env_file"; then
-                sed -i "s/^$key=.*/$key=\"$val\"/" "$env_file"
+            if grep -q "^$key=" "$env_file" 2>/dev/null; then
+                sed -i "s|^$key=.*|$key=\"$val\"|" "$env_file" 2>/dev/null || {
+                    log_warn "환경변수 업데이트 실패: $key"
+                    continue
+                }
             else
-                echo "$key=\"$val\"" >> "$env_file"
+                echo "$key=\"$val\"" >> "$env_file" 2>/dev/null || {
+                    log_warn "환경변수 추가 실패: $key" 
+                    continue
+                }
             fi
             
             ((new_vars_count++))
@@ -163,10 +164,17 @@ parse_docker_services() {
     
     local services_count=0
     while IFS= read -r line; do
-        if [[ $line =~ ^__DOCKER_START__\ name=([^[:space:]]+)\ req=([^[:space:]]+) ]]; then
-            docker_names_ref+=("${BASH_REMATCH[1]}")
-            docker_req_ref+=("${BASH_REMATCH[2]}")
-            ((services_count++))
+        if [[ "$line" == *"__DOCKER_START__"* ]]; then
+            # name과 req 값 추출
+            local name=$(echo "$line" | grep -o 'name=[^[:space:]]*' | cut -d'=' -f2)
+            local req=$(echo "$line" | grep -o 'req=[^[:space:]]*' | cut -d'=' -f2)
+            
+            if [[ -n "$name" && -n "$req" ]]; then
+                docker_names_ref+=("$name")
+                docker_req_ref+=("$req")
+                ((services_count++))
+                echo "DEBUG: $name -> $req"  # 임시 디버그
+            fi
         fi
     done < "$nfo_file"
     
@@ -196,7 +204,7 @@ select_optional_services() {
     done
     
     # 서비스 테이블 출력
-    show_services_table "${docker_names_ref[@]}" "${docker_req_ref[@]}"
+    show_services_table "${docker_names_ref[@]}" "${docker_req_ref[@]}" "dummy"
     
     if [[ ${#optional_index[@]} -eq 0 ]]; then
         log_warn "선택 가능한 옵션 서비스가 없습니다"
