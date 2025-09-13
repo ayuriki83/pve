@@ -157,7 +157,7 @@ __DOCKER_END__
 
 __DOCKER_START__ name=rclone req=true
 __CMD_START__
-mkdir -p /docker/rclone && mkdir -p /mnt/rclone/{Cache,Data} && mkdir -p /mnt/backup/{docker,synology}
+mkdir -p /docker/rclone && mkdir -p /mnt/rclone/{Cache,Data} && mkdir -p /mnt/backup/docker
 __CMD_END__
 __EOFS_START__
 __EOF_START__ /docker/rclone/docker-compose.yml
