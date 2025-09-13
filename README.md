@@ -38,12 +38,10 @@ cd /tmp/scripts
 ### Step2. LXC 컨테이너 내부
 ```
 pct enter $CT_ID
-cd /tmp/scripts
-chmod +x docker.sh && chmod +x caddy_setup.sh
 
 # 4단계: Docker 서비스 배포 (Caddyfile도 자동 생성됨)
-./docker.sh
+cd /tmp/scripts && ./docker.sh
 
 # 5단계: Caddy 서비스 관리 (필요시)
-./caddy_setup.sh
+cd /tmp/scripts && ./caddy_setup.sh
 ```
