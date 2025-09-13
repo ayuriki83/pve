@@ -64,9 +64,8 @@ volumes:
 networks:
   default:
     external: true
-    name ##DOCKER_BRIDGE_NM##
+    name: ##DOCKER_BRIDGE_NM##
 __EOF_END__
-
 __EOF_START__ /docker/docker-all-start.sh
 #!/usr/bin/env bash
 
@@ -118,6 +117,29 @@ done
 
 echo "모든 도커 서비스 처리 완료."
 __EOF_END__
+__EOF_START__ /docker/docker-all-stop.sh
+#!/bin/bash
+
+# 모든 도커 컨테이너 중지 스크립트
+
+echo "모든 도커 컨테이너 중지 시작..."
+
+# 실행 중인 모든 컨테이너 ID 리스트 가져오기
+containers=$(docker ps -q)
+
+if [ -z "$containers" ]; then
+  echo "중지할 실행 중인 컨테이너가 없습니다."
+  exit 0
+fi
+
+# 각 컨테이너 중지 반복
+for container in $containers; do
+    echo "중지 중: 컨테이너 ID $container"
+    docker stop "$container"
+done
+
+echo "모든 도커 컨테이너가 중지되었습니다."
+__EOFS_END__
 __EOFS_END__
 __CADDYS_START__
 __CADDY_START__
@@ -135,7 +157,7 @@ __DOCKER_END__
 
 __DOCKER_START__ name=rclone req=true
 __CMD_START__
-mkdir -p /docker/rclone
+mkdir -p /docker/rclone && mkdir -p /mnt/rclone/{Cache,Data}
 __CMD_END__
 __EOFS_START__
 __EOF_START__ /docker/rclone/docker-compose.yml
@@ -319,17 +341,17 @@ services:
     devices:
       - "/dev/dri:/dev/dri"
     environment:
-      PUID: 0
-      PGID: 0
-      TZ: ${TZ:-Asia/Seoul}
-      PLEX_CLAIM: claim-dxqdEtTdsP_88m1ZBXE1
-      VERSION: docker
-      WAIT_ANCHOR_DIRS: /share/gds/GDRIVE/VIDEO/방송중
-      WATCHER_DIRS: /share/gds/GDRIVE/VIDEO/방송중
-      WATCHER_INTERVAL: 3600s
-      CLEANUP_PTC_CRON: 44 44 */4 * * *
-      CLEANUP_PTC_EXCEED_GB: 30
-      CLEANUP_PTC_FREEUP_GB: 10
+      - PUID=0
+      - PGID=0
+      - TZ=${TZ:-Asia/Seoul}
+      - PLEX_CLAIM=claim-dxqdEtTdsP_88m1ZBXE1
+      - VERSION=docker
+      - WAIT_ANCHOR_DIRS=/share/gds/GDRIVE/VIDEO/방송중
+      - WATCHER_DIRS=/share/gds/GDRIVE/VIDEO/방송중
+      - WATCHER_INTERVAL=3600s
+      - CLEANUP_PTC_CRON=44 44 */4 * * *
+      - CLEANUP_PTC_EXCEED_GB=30
+      - CLEANUP_PTC_FREEUP_GB=10
     logging:
       driver: json-file
       options:
@@ -389,8 +411,8 @@ services:
     devices:
       - /dev/dri:/dev/dri         # Intel/NVIDIA GPU용 초기 예시
     environment:
-      - PUID: 0
-      - PGID: 0
+      - PUID=0
+      - PGID=0
       - TZ=Asia/Seoul             # 시간대
     ports:
       - 8096:8096                 # Jellyfin 기본 포트
@@ -442,10 +464,10 @@ services:
     ports:
       - "5000:5000"
     environment:
-      - PUID: 0
-      - PGID: 0
-      - TZ: Asia/Seoul
-      - WAIT_ANCHOR_DIRS: /mnt/gds2/GDRIVE/READING
+      - PUID=0
+      - PGID=0
+      - TZ=Asia/Seoul
+      - WAIT_ANCHOR_DIRS=/mnt/gds2/GDRIVE/READING
 networks:
   default:
     external: true
