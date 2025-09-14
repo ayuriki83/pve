@@ -1,4 +1,4 @@
-# Proxmox 설치
+# Proxmox
 Proxmox + LXC(Ubuntu) + Synology
 
 ### Step0. 사전작업
