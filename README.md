@@ -1,7 +1,7 @@
 # Proxmox
 Proxmox + LXC(Ubuntu) + Synology
 
-### Step0. 사전작업
+### Step0. Initial
 ```
 echo "alias ls='ls --color=auto --show-control-chars'" >> /root/.bashrc
 echo "alias ll='ls -al --color=auto --show-control-chars'" >> /root/.bashrc
@@ -21,27 +21,27 @@ git clone https://github.com/ayuriki83/pve.git .
 chmod +x pve_init.sh && chmod +x pve_partition.sh && chmod +x lxc_create.sh
 ```
 
-### Step1. Proxmox 호스트
+### Step1. Proxmox Host
 ```
 cd /tmp/scripts
 
-# 1단계: Proxmox 초기설정
+# 1단계: Proxmox init
 ./pve_init.sh
 
-# 2단계: 디스크 파티션 설정
+# 2단계: Partitioning
 ./pve_partition.sh
 
-# 3단계: LXC 컨테이너 생성
+# 3단계: LXC Container Create
 ./lxc_create.sh
 ```
 
-### Step2. LXC 컨테이너 내부
+### Step2. LXC Container
 ```
 pct enter $CT_ID
 
-# 4단계: Docker 서비스 배포 (Caddyfile도 자동 생성됨)
+# 4단계: Management Docker 
 cd /tmp/scripts && ./docker.sh
 
-# 5단계: Caddy 서비스 관리 (필요시)
+# 5단계: Management Caddy (Optional)
 cd /tmp/scripts && ./caddy_setup.sh
 ```
