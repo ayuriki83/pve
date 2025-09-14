@@ -25,13 +25,13 @@ chmod +x pve_init.sh && chmod +x pve_partition.sh && chmod +x lxc_create.sh
 ```
 cd /tmp/scripts
 
-# 1단계: Proxmox init
+# 1: Proxmox init
 ./pve_init.sh
 
-# 2단계: Partitioning
+# 2: Partitioning
 ./pve_partition.sh
 
-# 3단계: LXC Container Create
+# 3: LXC Container Create
 ./lxc_create.sh
 ```
 
@@ -39,9 +39,9 @@ cd /tmp/scripts
 ```
 pct enter $CT_ID
 
-# 4단계: Management Docker 
+# 4: Management Docker 
 cd /tmp/scripts && ./docker.sh
 
-# 5단계: Management Caddy (Optional)
+# 5: Management Caddy (Optional)
 cd /tmp/scripts && ./caddy_setup.sh
 ```
