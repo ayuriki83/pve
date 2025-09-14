@@ -7,23 +7,23 @@ echo "alias ls='ls --color=auto --show-control-chars'" >> /root/.bashrc
 echo "alias ll='ls -al --color=auto --show-control-chars'" >> /root/.bashrc
 source /root/.bashrc
 
-cp /etc/apt/sources.list.d/pve-enterprise.sources /etc/apt/sources.list.d/pve-enterprise.sources.bak
+mv /etc/apt/sources.list.d/pve-enterprise.sources /etc/apt/sources.list.d/pve-enterprise.sources.disabled
 cp /etc/apt/sources.list.d/ceph.sources /etc/apt/sources.list.d/ceph.sources.bak
 
-cat <<EOF | tee /etc/apt/sources.list.d/pve-enterprise.sources
+cat <<EOF | tee /etc/apt/sources.list.d/pve-no-subscription.sources
 Types: deb
 URIs: http://download.proxmox.com/debian/pve
 Suites: trixie
 Components: pve-no-subscription
-Signed-By: /usr/share/keyrings/proxmox-release-trixie.gpg
+Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
 EOF
 
 cat <<EOF | tee /etc/apt/sources.list.d/ceph.sources
 Types: deb
-URIs: http://download.proxmox.com/debian/ceph-quincy
-Suites: bookworm
+URIs: http://download.proxmox.com/debian/ceph-squid
+Suites: trixie
 Components: no-subscription
-Signed-By: /usr/share/keyrings/proxmox-release-bookworm.gpg
+Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
 EOF
 
 apt update && apt upgrade -y
