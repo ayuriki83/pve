@@ -254,11 +254,11 @@ echo "[정보] 서비스가 완전히 중지될 때까지 5초간 대기합니�
 sleep 5
 
 # /mnt/rclone/DATA/GDRIVE가 마운트될 때까지 5초 간격 대기
-echo "[정보] /mnt/rclone/DATA/GDRIVE 마운트 상태를 확인 중입니다..."
-while [ ! -d /mnt/rclone/DATA/GDRIVE ]; do
+echo "[정보] /mnt/rclone/Data/GDRIVE 마운트 상태를 확인 중입니다..."
+while [ ! -d /mnt/rclone/Data/GDRIVE ]; do
   sleep 5
 done
-echo "[정보] /mnt/rclone/DATA/GDRIVE가 마운트되었습니다."
+echo "[정보] /mnt/rclone/Data/GDRIVE가 마운트되었습니다."
 
 # I/O 안정화 대기
 echo "[정보] I/O 안정화를 위해 5초간 대기합니다..."
