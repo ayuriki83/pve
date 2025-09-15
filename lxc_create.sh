@@ -278,6 +278,8 @@ configure_lxc() {
     # LXC 설정 추가
     log_info "LXC 컨테이너 설정 추가 중..."
 
+    local lxc_conf="/etc/pve/lxc/${CT_ID}.conf"
+
     if [ -n "$DIR_BACKUP" ]; then
         cat >> "$lxc_conf" <<EOF
 mp0: $DIR_BACKUP,mp=$MNT_BACKUP
