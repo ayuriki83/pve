@@ -244,6 +244,7 @@ create_container() {
     echo -e "${CYAN}  - 스왑: ${SWAP}${NC}"
     echo -e "${CYAN}  - CPU 코어: $CORES${NC}"
     echo -e "${CYAN}  - CPU 제한: $CPU_LIMIT${NC}"
+    echo -e "${CYAN}  - CPU 우선: $CPU_UNITS${NC}"
     echo -e "${CYAN}  - 권한 모드: $([ $UNPRIVILEGED -eq 1 ] && echo "Unprivileged" || echo "Privileged")${NC}"
     echo -e "${CYAN}  - IP 주소: $IP${NC}"
     
@@ -257,6 +258,7 @@ create_container() {
         --swap $SWAP \
         --cores $CORES \
         --cpulimit $CPU_LIMIT \
+        --cpuunits $CPU_UNITS \
         --net0 name=eth0,bridge=vmbr0,ip=$IP,gw=$GATEWAY \
         --features nesting=1,keyctl=1 \
         --unprivileged $UNPRIVILEGED \
