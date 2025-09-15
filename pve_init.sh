@@ -217,8 +217,8 @@ main() {
     echo -e "${CYAN}  - 커널: $(uname -r)${NC}"
     echo -e "${CYAN}  - 메모리: $(free -h | awk '/^Mem:/ {print $2}')${NC}"
     echo -e "${CYAN}  - 디스크 사용량: $(df -h / | awk 'NR==2 {print $3"/"$2" ("$5")"}')${NC}"
-    
-    expand_root_partition
+
+    #expand_root_partition
     configure_security
     configure_gpu
     
