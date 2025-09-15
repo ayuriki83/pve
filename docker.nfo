@@ -335,7 +335,7 @@ if mountpoint -q ##MNT_BACKUP##; then
     [[ ! -d "$SRC" ]] && continue
     # 제외 폴더면 스킵
     skip=0
-    for exclude in "${EXCLUDE_DIR[@]}"; do
+    for exclude in "${EXCLUDE_DIRS[@]}"; do
       if [[ "$BASENAME" == "$exclude" ]]; then
         skip=1
         break
