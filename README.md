@@ -27,7 +27,7 @@ Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
 EOF
 
 apt update && apt upgrade -y
-apt install curl wget htop tree rsync neofetch git vim parted nfs-common net-tools -y
+apt install curl wget htop tree rsync git vim parted nfs-common net-tools -y
 
 mkdir -p /tmp/scripts && cd /tmp/scripts
 git clone -b working --single-branch https://github.com/ayuriki83/pve.git .
