@@ -134,13 +134,9 @@ ENV_FILE="$SCRIPT_DIR/pve.env"
 load_config "$ENV_FILE"
 
 # 환경변수 기본값 설정
-MAIN=${MAIN:-"main"}
-VG_NAME="vg-$MAIN"
-LV_NAME="lv-$MAIN"
-LVM_NAME="lvm-$MAIN"
 CT_ID=${CT_ID:-101}
 HOSTNAME=${HOSTNAME:-"Ubuntu"}
-STORAGE=${LVM_NAME:-"lvm-main"}
+STORAGE=${LVM_NAME:-"local-lvm"}
 ROOTFS=${ROOTFS:-128}
 MEMORY_GB=${MEMORY_GB:-18}
 MEMORY=$((MEMORY_GB * 1024))
