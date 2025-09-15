@@ -30,7 +30,7 @@ apt update && apt upgrade -y
 apt install curl wget htop tree rsync neofetch git vim parted nfs-common net-tools -y
 
 mkdir -p /tmp/scripts && cd /tmp/scripts
-git clone https://github.com/ayuriki83/pve.git .
+git clone -b working https://github.com/ayuriki83/pve.git .
 chmod +x pve_init.sh && chmod +x pve_partition.sh && chmod +x lxc_create.sh
 ```
 
