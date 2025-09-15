@@ -304,7 +304,7 @@ SRC_FILES=(
 )
 
 # 예외폴더 (추가할 경우 예시 "a" "b")
-EXCLUDE_DIR=("core")
+EXCLUDE_DIRS=("core")
 
 # 대상 폴더 경로
 DEST_BASE="##MNT_BACKUP##/docker"
@@ -335,8 +335,11 @@ if mountpoint -q ##MNT_BACKUP##; then
     [[ ! -d "$SRC" ]] && continue
     # 제외 폴더면 스킵
     skip=0
-    for exclude in "${EXCLUDE_DIRS[@]}"; do
-      [[ "$BASENAME" == "$exclude" ]] && skip=1
+    for exclude in "${EXCLUDE_DIR[@]}"; do
+      if [[ "$BASENAME" == "$exclude" ]]; then
+        skip=1
+        break
+      fi
     done
     [[ "$skip" == 1 ]] && continue
 
