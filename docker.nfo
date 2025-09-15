@@ -197,9 +197,9 @@ services:
         --vfs-read-ahead 32M
         --vfs-cache-mode=full
         --vfs-cache-max-size=256G
-        --vfs-cache-max-age=480h
+        --vfs-cache-max-age=720h
         --vfs-cache-poll-interval=5m
-        --dir-cache-time=1000h
+        --dir-cache-time=720h
         --read-only
         --no-checksum
         --no-modtime
