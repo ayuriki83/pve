@@ -102,7 +102,7 @@ expand_root_partition() {
 
 # 보안 설정
 configure_security() {
-    log_step "단계 2/3: 보안 설정"
+    log_step "단계 1/2: 보안 설정"
     
     # AppArmor 비활성화
     log_info "AppArmor 비활성화 중..."
@@ -155,7 +155,7 @@ configure_security() {
 
 # GPU 설정
 configure_gpu() {
-    log_step "단계 3/3: GPU 설정"
+    log_step "단계 2/2: GPU 설정"
     
     echo
     log_info "GPU 종류를 선택하세요:"
