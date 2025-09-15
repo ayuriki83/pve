@@ -144,10 +144,6 @@ SWAP=${SWAP:-2048}
 CORES=${CORES:-6}
 CPU_LIMIT=${CPU_LIMIT:-6}
 UNPRIVILEGED=${UNPRIVILEGED:-0}
-RCLONE_GB=${RCLONE_GB:-256}
-RCLONE_SIZE="${RCLONE_GB}G"
-LV_RCLONE=${LV_RCLONE:-"lv-rclone"}
-MNT_RCLONE=${MNT_RCLONE:-"/mnt/rclone"}
 DIR_BACKUP=${DIR_BACKUP}
 MNT_BACKUP=${MNT_BACKUP:-"/mnt/backup"}
 
@@ -273,40 +269,15 @@ create_container() {
 }
 
 # 4단계: RCLONE 저장소 및 LXC 설정
-configure_rclone_and_lxc() {
-    log_step "단계 4/5: RCLONE 저장소 생성 및 LXC 설정"
-    
-    local lv_path="/dev/${VG_NAME}/${LV_RCLONE}"
-    local lxc_conf="/etc/pve/lxc/${CT_ID}.conf"
-    
-    # RCLONE LV 생성
-    log_info "RCLONE 논리 볼륨 생성 중... (크기: $RCLONE_SIZE)"
-    
-    if ! lvs "$lv_path" >/dev/null 2>&1; then
-        if lvcreate -V "$RCLONE_SIZE" -T "${VG_NAME}/${LV_NAME}" -n "$LV_RCLONE"; then
-            log_success "논리 볼륨 생성 완료: $lv_path"
-        else
-            log_error "논리 볼륨 생성에 실패했습니다"
-            exit 1
-        fi
-        
-        if mkfs.ext4 "$lv_path" >/dev/null 2>&1; then
-            log_success "ext4 파일시스템 생성 완료"
-        else
-            log_error "파일시스템 생성에 실패했습니다"
-            exit 1
-        fi
-    else
-        log_info "RCLONE 논리 볼륨이 이미 존재합니다: $lv_path"
-    fi
+configure_lxc() {
+    log_step "단계 4/5: LXC 설정"
     
     # LXC 설정 추가
     log_info "LXC 컨테이너 설정 추가 중..."
 
     if [ -n "$DIR_BACKUP" ]; then
         cat >> "$lxc_conf" <<EOF
-mp0: $lv_path,mp=$MNT_RCLONE
-mp1: $DIR_BACKUP,mp=$MNT_BACKUP
+mp0: $DIR_BACKUP,mp=$MNT_BACKUP
 lxc.cgroup2.devices.allow: c 10:229 rwm
 lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file
 lxc.apparmor.profile: unconfined
@@ -315,7 +286,6 @@ lxc.cap.drop:
 EOF
     else
         cat >> "$lxc_conf" <<EOF
-mp0: $lv_path,mp=$MNT_RCLONE
 lxc.cgroup2.devices.allow: c 10:229 rwm
 lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file
 lxc.apparmor.profile: unconfined
@@ -447,7 +417,7 @@ main() {
     create_container
     
     # 4단계: RCLONE 및 LXC 설정
-    configure_rclone_and_lxc
+    configure_lxc
     
     # 5단계: GPU 설정
     configure_gpu_settings
