@@ -51,10 +51,10 @@ cd /tmp/scripts
 # working on container
 # pct enter $CT_ID
 
-# 4: Management Docker 
+# 3: Management Docker 
 cd /tmp/scripts && ./docker.sh
 
-# 5: Management Caddy (Optional)
+# 4: Management Caddy (Optional)
 cd /tmp/scripts && ./caddy_setup.sh
 ```
 
@@ -62,7 +62,7 @@ cd /tmp/scripts && ./caddy_setup.sh
 ```
 # working on proxmox
 
-# 6: Install synology
+# 5: Install synology
 cd /tmp/scripts && ./synology.sh
 ```
 
