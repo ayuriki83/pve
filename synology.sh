@@ -47,6 +47,23 @@ load_config() {
     fi
 }
 
+# 설정 파일 위치
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_FILE="$SCRIPT_DIR/synology.env"
+
+# 설정 파일 로드
+load_config "$ENV_FILE"
+
+# 환경변수 기본값 설정
+VM_ID=${VM_ID:-100}
+VM_NAME=${VM_NAME:-"Synology"}
+MEMORY_GB=${MEMORY_GB:-8}
+MEMORY=$((MEMORY_GB * 1024))
+CORES=${CORES:-4}
+SOCKETS=${SOCKETS:-1}
+BRIDGE="vmbr0"
+BOOTLOADER_DIR="/var/lib/vz/template/iso"
+
 # Step 1. 디스크 선택
 select_disk() {
   log_step "Step 1. DSM 패스스루 디스크 선택"
@@ -113,7 +130,7 @@ select_bootloader() {
       ;;
   esac
 
-  IMG_PATH="${BOOTLOADER_DIR}/${IMAGE_NAME}-${VMID}.img"
+  IMG_PATH="${BOOTLOADER_DIR}/${IMAGE_NAME}-${VM_ID}.img"
   mkdir -p "$BOOTLOADER_DIR"
 
   log_step "${IMAGE_NAME} 부트로더 다운로드 및 준비"
@@ -138,24 +155,6 @@ select_bootloader() {
   fi
   log_info "부트로더 준비 완료: $IMG_PATH"
 }
-
-# 설정 파일 위치
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_FILE="$SCRIPT_DIR/synology.env"
-
-# 설정 파일 로드
-load_config "$ENV_FILE"
-
-# 환경변수 기본값 설정
-VM_ID=${VM_ID:-100}
-VM_NAME=${VM_NAME:-"Synology"}
-MEMORY_GB=${MEMORY_GB:-8}
-MEMORY=$((MEMORY_GB * 1024))
-CORES=${CORES:-4}
-SOCKETS=${SOCKETS:-1}
-BRIDGE="vmbr0"
-BOOTLOADER_DIR="/var/lib/vz/template/iso"
-
 # Step 3. VM 생성
 create_vm() {
   log_step "Step 3. VM(${VM_ID}) 생성"
@@ -165,35 +164,34 @@ create_vm() {
     --cores $CORES \
     --sockets $SOCKETS \
     --cpu host \
-    --net0 virtio,bridge=$BRIDGE \
-    --bios seabios
+    --net0 virtio,bridge=$BRIDGE
   log_info "VM 생성 완료"
 }
 
 # Step 4. 디스크/부트로더 연결
 attach_disks() {
-  log_step "Step 4. DSM 디스크 패스스루 연결"
-  qm set $VMID --sata0 $DISKPATH
+  log_step "Step 4. DSM 디스크 패스스루 연결 및 부트로더 연결"
+  qm set $VM_ID --sata0 $DISKPATH
   log_info "패스스루 디스크 연결 완료: $DISKPATH"
 
-  log_step "Step 4-1. 부트로더 연결"
-  qm set $VMID --args "-drive if=none,id=synoboot,format=raw,file=$IMG_PATH -device qemu-xhci,id=xhci -device usb-storage,bus=xhci.0,drive=synoboot,bootindex=0"
+  qm set $VM_ID --args "-drive if=none,id=synoboot,format=raw,file=$IMG_PATH -device qemu-xhci,id=xhci -device usb-storage,bus=xhci.0,drive=synoboot,bootindex=0"
   log_info "부트로더 연결 완료"
 }
 
-# Step 5. 부팅 순서 설정
+# Step 5. 부팅 장치 설정
 set_boot_order() {
-  log_step "Step 5. 부팅 순서 설정"
-  qm set $VMID --boot order=synoboot,sata0
-  log_info "부팅 순서 설정 완료"
+  log_step "Step 5. 부팅 장치 설정"
+  #qm set $VM_ID --boot order=synoboot,sata0
+  qm set $VM_ID --boot sata0
+  log_info "부팅 장치 설정 완료"
 }
 
 # Step 6. 최종 확인
 final_check() {
-  log_step "Step 6. 최종 VM 설정 확인"
-  qm config $VMID
-  log_info "Synology DSM VM(${VMID}) 준비 완료"
-  log_info "'qm start $VMID' 실행 후, 브라우저에서 find.synology.com 으로 접속하세요"
+  log_step "Step 5. 최종 VM 설정 확인"
+  qm config $VM_ID
+  log_info "Synology DSM VM(${VM_ID}) 준비 완료"
+  log_info "'qm start $VM_ID' 실행 후, 브라우저에서 find.synology.com 으로 접속하세요"
 }
 
 # 메인 실행
