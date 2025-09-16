@@ -64,59 +64,24 @@ SOCKETS=${SOCKETS:-1}
 BRIDGE="vmbr0"
 BOOTLOADER_DIR="/var/lib/vz/template/iso"
 
-# Step 1. 디스크 선택
-select_disk() {
-  log_step "Step 1. DSM 패스스루 디스크 선택"
-
-  # 디스크 목록 가져오기
-  mapfile -t disks < <(ls -1 /dev/disk/by-id/ | grep -E "ata|nvme|scsi")
-
-  if [ ${#disks[@]} -eq 0 ]; then
-    log_error "사용 가능한 디스크를 찾을 수 없습니다."
-    exit 1
-  fi
-
-  echo
-  echo "사용 가능한 디스크 목록:"
-  for i in "${!disks[@]}"; do
-    printf "  %d) %s -> %s\n" $((i+1)) "${disks[$i]}" "$(readlink -f /dev/disk/by-id/${disks[$i]})"
-  done
-  echo
-
-  while true; do
-    read -p "패스스루로 사용할 디스크 번호를 입력하세요 [1-${#disks[@]}]: " choice
-    if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= ${#disks[@]} )); then
-      DISKID="${disks[$((choice-1))]}"
-      DISKPATH="/dev/disk/by-id/$DISKID"
-      break
-    else
-      log_warn "잘못된 입력입니다. 다시 시도하세요."
-    fi
-  done
-
-  log_info "선택된 디스크: $DISKPATH"
-}
-
-# Step 2. 부트로더 선택 및 다운로드
 select_bootloader() {
-  log_step "Step 2. 부트로더 선택"
-  echo "1) m-shell"
-  echo "2) RR"
+  log_step "Step 1. 부트로더 선택"
+  echo "1) RR"
+  echo "2) m-shell"
   echo "3) xTCRP"
-  read -p "부트로더를 선택하세요 [1-3]: " IMAGE_CHOICE
-
+  read -p "부트로더 선택 [1-3]: " IMAGE_CHOICE
   case $IMAGE_CHOICE in
     1)
-      IMAGE_NAME="m-shell"
-      LATESTURL=$(curl -sL -w %{url_effective} -o /dev/null "https://github.com/PeterSuh-Q3/tinycore-redpill/releases/latest")
-      TAG="${LATESTURL##*/}"
-      IMG_URL="https://github.com/PeterSuh-Q3/tinycore-redpill/releases/download/${TAG}/tinycore-redpill.${TAG}.m-shell.img.gz"
-      ;;
-    2)
       IMAGE_NAME="RR"
       LATESTURL=$(curl -sL -w %{url_effective} -o /dev/null "https://github.com/RROrg/rr/releases/latest")
       TAG="${LATESTURL##*/}"
       IMG_URL="https://github.com/RROrg/rr/releases/download/${TAG}/rr-${TAG}.img.zip"
+      ;;
+    2)
+      IMAGE_NAME="m-shell"
+      LATESTURL=$(curl -sL -w %{url_effective} -o /dev/null "https://github.com/PeterSuh-Q3/tinycore-redpill/releases/latest")
+      TAG="${LATESTURL##*/}"
+      IMG_URL="https://github.com/PeterSuh-Q3/tinycore-redpill/releases/download/${TAG}/tinycore-redpill.${TAG}.m-shell.img.gz"
       ;;
     3)
       IMAGE_NAME="xTCRP"
@@ -139,7 +104,7 @@ select_bootloader() {
     command -v unzip >/dev/null || { log_warn "unzip 미설치, 설치 진행"; apt-get update && apt-get install -y unzip; }
   
     curl -kL# "$IMG_URL" -o "${IMG_PATH}.zip"
-    unzip -o "${IMG_PATH}.zip" -d "$BOOTLOADER_DIR"
+    unzip -o "${IMG_PATH}.zip" -d "$BOOTLOADER_DIR" &> /dev/null
     if [ -f "${BOOTLOADER_DIR}/rr.img" ]; then
       mv "${BOOTLOADER_DIR}/rr.img" "$IMG_PATH"
     fi
@@ -153,11 +118,76 @@ select_bootloader() {
     log_error "다운로드/추출 후 .img 파일을 찾을 수 없습니다."
     exit 1
   fi
-  log_info "부트로더 준비 완료: $IMG_PATH"
+  log_success "부트로더 준비 완료: $IMG_PATH"
 }
-# Step 3. VM 생성
-create_vm() {
-  log_step "Step 3. VM(${VM_ID}) 생성"
+
+select_disk() {
+  log_step "Step 2. DSM 패스스루 디스크 선택"
+  # by-id 파티션 제외, 실제 device 필터
+  mapfile -t raw_disks < <(ls -1 /dev/disk/by-id/ | grep -E 'ata|nvme|scsi' | grep -v 'part[0-9]$' | grep -v '^nvme-eui\.')
+  if [ ${#raw_disks[@]} -eq 0 ]; then
+    mapfile -t raw_disks < <(ls -1 /dev/disk/by-id/ | grep -E 'ata|nvme|scsi' | grep -v 'part[0-9]$')
+  fi
+  disklist=()
+  seen=()
+  for id in "${raw_disks[@]}"; do
+    dev=$(readlink -f /dev/disk/by-id/$id)
+    if [ -b "$dev" ] && [[ "$dev" =~ ^/dev/(sd[a-z]|nvme[0-9]n[0-9])$ ]]; then
+      if [[ ! " ${seen[*]} " =~ " ${dev} " ]]; then
+        disklist+=("$id")
+        seen+=("$dev")
+      fi
+    fi
+  done
+  if [ ${#disklist[@]} -eq 0 ]; then
+    log_error "사용 가능한 디스크가 없습니다."
+    exit 1
+  fi
+  for i in "${!disklist[@]}"; do
+    num=$((i+1))
+    dev=$(readlink -f /dev/disk/by-id/${disklist[$i]})
+    size=$(lsblk -dnb -o SIZE "$dev" 2>/dev/null | numfmt --to=iec-i --suffix=B 2>/dev/null || echo "unknown")
+    echo " $num) ${disklist[$i]} -> $dev ($size)"
+  done
+  while true; do
+    read -p "패스스루 디스크 번호 선택 [1-${#disklist[@]}]: " choice
+    if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= ${#disklist[@]} )); then
+      DISKID="${disklist[$((choice-1))]}"
+      DISKPATH="/dev/disk/by-id/$DISKID"
+      break
+    else
+      log_warn "잘못된 선택, 재입력"
+    fi
+  done
+  log_info "선택된 디스크: $DISKPATH"
+}
+
+select_usb() {
+  log_step "Step 3. USB 저장장치 선택 (없으면 엔터)"
+  mapfile -t usb_ids < <(ls -1 /dev/disk/by-id/ | grep -Ei "usb" | grep -v part)
+  if [ ${#usb_ids[@]} -eq 0 ]; then
+    echo "USB 장치가 없습니다."
+    USB_PATH=""
+    return 0
+  fi
+  for i in "${!usb_ids[@]}"; do
+    num=$((i+1))
+    dev=$(readlink -f /dev/disk/by-id/${usb_ids[$i]})
+    echo " $num) ${usb_ids[$i]} -> $dev"
+  done
+  read -p "USB 저장장치 번호 선택 [1-${#usb_ids[@]}] (선택 안하면 엔터): " choice
+  if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= ${#usb_ids[@]} )); then
+    USB_PATH="/dev/disk/by-id/${usb_ids[$((choice-1))]}"
+    log_info "선택된 USB 저장장치: $USB_PATH"
+  else
+    USB_PATH=""
+    log_info "USB 저장장치를 추가하지 않음"
+  fi
+}
+
+create_vm_and_set() {
+  log_step "Step 4. VM 생성 및 구성"
+
   qm create $VM_ID \
     --name $VM_NAME \
     --memory $MEMORY \
@@ -165,44 +195,34 @@ create_vm() {
     --sockets $SOCKETS \
     --cpu host \
     --net0 virtio,bridge=$BRIDGE
-  log_info "VM 생성 완료"
+
+  # 디스크, 부트로더, USB args 조합
+  BOOTLOADER_ARGS="-drive if=none,id=synoboot,format=raw,file=$IMG_PATH -device qemu-xhci,id=xhci -device usb-storage,bus=xhci.0,drive=synoboot,bootindex=0"
+  SATA_ARGS="--sata0 $DISKPATH"
+  if [ -n "$USB_PATH" ]; then
+    USB_ARGS="-drive if=none,id=usbdisk,format=raw,file=$USB_PATH -device usb-storage,bus=xhci.0,drive=usbdisk"
+  else
+    USB_ARGS=""
+  fi
+
+  qm set $VM_ID $SATA_ARGS --args "$BOOTLOADER_ARGS $USB_ARGS" &> /dev/null
+  log_info "VM 생성 및 연결 완료"
 }
 
-# Step 4. 디스크/부트로더 연결
-attach_disks() {
-  log_step "Step 4. DSM 디스크 패스스루 연결 및 부트로더 연결"
-  qm set $VM_ID --sata0 $DISKPATH
-  log_info "패스스루 디스크 연결 완료: $DISKPATH"
-
-  qm set $VM_ID --args "-drive if=none,id=synoboot,format=raw,file=$IMG_PATH -device qemu-xhci,id=xhci -device usb-storage,bus=xhci.0,drive=synoboot,bootindex=0"
-  log_info "부트로더 연결 완료"
-}
-
-# Step 5. 부팅 장치 설정
-set_boot_order() {
-  log_step "Step 5. 부팅 장치 설정"
-  #qm set $VM_ID --boot order=synoboot,sata0
-  qm set $VM_ID --boot sata0
-  log_info "부팅 장치 설정 완료"
-}
-
-# Step 6. 최종 확인
 final_check() {
   log_step "Step 5. 최종 VM 설정 확인"
   qm config $VM_ID
   log_info "Synology DSM VM(${VM_ID}) 준비 완료"
-  log_info "'qm start $VM_ID' 실행 후, 브라우저에서 find.synology.com 으로 접속하세요"
+  log_info "'qm start $VM_ID' 실행 후 find.synology.com 에 접속하세요"
 }
 
-# 메인 실행
 main() {
-  show_header "Syonolgy 설치 자동화 with passthrough"
-  
-  select_disk
+  show_header "Synology 설치 자동화 with passthrough"
+
   select_bootloader
-  create_vm
-  attach_disks
-  set_boot_order
+  select_disk
+  select_usb
+  create_vm_and_set
   final_check
 }
 
