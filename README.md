@@ -37,23 +37,26 @@ chmod +x pve_init.sh && chmod +x pve_partition.sh && chmod +x lxc_create.sh
 ### Step1. Proxmox Host
 ```
 # Running in a proxmox
-cd /tmp/scripts
 
 # 1: Proxmox init
-./pve_init.sh
+cd /tmp/scripts && ./pve_init.sh
+
+# 2: Partitioning (If you are not running Synology)
+cd /tmp/scripts && ./pve_partition.sh
 ```
 
 ### Step2. (Optional) Synology
 ```
 # Running in a proxmox
 
-# 2: Install synology
+# 3: Install synology
 cd /tmp/scripts && ./synology.sh
+
 ```
 ```
 # Running in a synology
 
-# 3: Setting Up NFS Folder Sharing
+# 4: Setting Up NFS Folder Sharing
 - Enable the NFS Service
 - Create a Backup Folder
 - Assign the Backup Folder to NFS (Enable NFS Options, IP Range)
@@ -61,19 +64,15 @@ cd /tmp/scripts && ./synology.sh
 ```
 # Running in a container
 
-# 4: NFS Backup Setting
-cd /tmp/scripts && ./backup_setting.sh
+# 5: NFS Backup Setting
+cd /tmp/scripts && ./nfs_backup.sh
 ```
 
 ### Step3. LXC Container
 ```
 # Running in a proxmox
-
-# 5: Partitioning (If you are not running Synology)
-./pve_partition.sh
-
 # 6: LXC Container Create
-./lxc_create.sh
+cd /tmp/scripts && ./lxc_create.sh
 ```
 ```
 # Running in a container
