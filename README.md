@@ -66,3 +66,20 @@ cd /tmp/scripts && ./caddy_setup.sh
 cd /tmp/scripts && ./synology.sh
 ```
 
+### Step3-1. (Optional) Synology nfs Backup
+```
+# working on synology
+
+# 6: nfs folder share
+- nfs service activate
+- backup folder create
+- backup folder edit (nfs option active. ip range)
+```
+
+### Step3-2. (Optional) nfs Backup Setting
+```
+# working on container
+
+# 7: NFS Backup Setting
+cd /tmp/scripts && ./install_backup.sh
+```
