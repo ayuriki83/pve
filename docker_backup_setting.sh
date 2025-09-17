@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ##################################################
-# Dcoker backup Setting
+# 도커 백업 세팅
 ##################################################
 
 set -euo pipefail
@@ -22,16 +22,15 @@ log_warn() { echo -e "${YELLOW}[$(date '+%Y-%m-%d %H:%M:%S')] WARNING: $*${NC}";
 log_info() { echo -e "${CYAN}[$(date '+%Y-%m-%d %H:%M:%S')] $*${NC}"; }
 log_step() { echo -e "${BLUE}[$(date '+%Y-%m-%d %H:%M:%S')] $*${NC}"; }
 
-
-# 사용자 입력 변수
+# 공통 변수
 NFS_IP=""
 NFS_SHARE=""
 MOUNTPOINT=""
 BACKUP_SCRIPT="/docker/docker-backup.sh"
 
-# STEP 1. 사용자 입력 받기
-get_user_input() {
-  log_step "Step 1. NFS 정보 입력"
+# STEP A. NFS 입력 받기
+get_user_input_nfs() {
+  log_step "NFS 백업 설정"
 
   read -p "NFS 서버 IP 입력: " NFS_IP
   read -p "NFS 공유 폴더 이름 (예: docker-backup): " NFS_SHARE
@@ -42,8 +41,39 @@ get_user_input() {
   log_ok "입력값 → IP: $NFS_IP, SHARE: $NFS_SHARE, MOUNT: $MOUNTPOINT"
 }
 
+# STEP B. MP 경로 선택
+get_user_input_mp() {
+  log_step "MP(마운트포인트) 백업 설정"
+
+  # /mnt/ 경로 중 ext4 만 필터링
+  mapfile -t mp_list < <(mount | awk '$3 ~ /^\/mnt\// && $5=="ext4" {print $3}')
+
+  if [ ${#mp_list[@]} -eq 0 ]; then
+    log_error "ext4 타입의 /mnt/* 마운트포인트를 찾을 수 없습니다."
+    exit 1
+  fi
+
+  echo "사용 가능한 마운트포인트 목록:"
+  for i in "${!mp_list[@]}"; do
+    printf "  %d) %s\n" $((i+1)) "${mp_list[$i]}"
+  done
+  echo
+
+  while true; do
+    read -p "백업에 사용할 마운트포인트 번호 선택 [1-${#mp_list[@]}]: " choice
+    if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= ${#mp_list[@]} )); then
+      MOUNTPOINT="${mp_list[$((choice-1))]}"
+      break
+    else
+      log_error "잘못된 입력입니다. 다시 시도하세요."
+    fi
+  done
+
+  log_ok "선택된 마운트 경로: $MOUNTPOINT"
+}
+
 prepare_mountpoint() {
-  log_step "Step 2. 마운트 경로 준비"
+  log_step "마운트 경로 준비"
   if [ ! -d "$MOUNTPOINT" ]; then
     sudo mkdir -p "$MOUNTPOINT"
     log_ok "마운트 경로 생성됨: $MOUNTPOINT"
@@ -53,7 +83,7 @@ prepare_mountpoint() {
 }
 
 update_fstab() {
-  log_step "Step 3. /etc/fstab 등록"
+  log_step "fstab 등록"
   FSTAB_LINE="${NFS_IP}:/volume1/${NFS_SHARE} ${MOUNTPOINT} nfs4 rw,noatime,nodiratime,rsize=65536,wsize=65536,nconnect=8 0 0"
 
   if grep -q "$MOUNTPOINT" /etc/fstab; then
@@ -65,7 +95,7 @@ update_fstab() {
 }
 
 mount_nfs() {
-  log_step "Step 4. NFS 마운트 적용"
+  log_step "NFS 마운트 적용"
   sudo mount -a
   if findmnt -t nfs4 "$MOUNTPOINT" > /dev/null; then
     log_ok "NFS 마운트 성공: $MOUNTPOINT"
@@ -76,7 +106,7 @@ mount_nfs() {
 }
 
 generate_backup_script() {
-  log_step "Step 5. 백업 스크립트 생성"
+  log_step "백업 스크립트 생성"
   sudo mkdir -p /docker
 
   cat > "$BACKUP_SCRIPT" <<EOF
@@ -95,16 +125,6 @@ LOGFILE="\$SCRIPT_DIR/docker-backup.log"
 find "\$SCRIPT_DIR" -maxdepth 1 -name "docker-backup.log.*" -type f -mtime +7 -exec rm -f {} \;
 if [ -f "\$LOGFILE" ]; then
   mv "\$LOGFILE" "\$LOGFILE.\$(date +%Y%m%d)"
-fi
-
-if ! findmnt -t nfs4 "$MOUNTPOINT" > /dev/null; then
-  echo "백업NFS가 마운트되어 있지 않습니다. 마운트 시도 중..."
-  mount -a
-fi
-
-if ! findmnt -t nfs4 "$MOUNTPOINT" > /dev/null; then
-  echo "백업NFS 마운트 실패" | tee -a "\$LOGFILE"
-  exit 1
 fi
 
 echo "복사 작업 시작: \$(date)" | tee -a "\$LOGFILE"
@@ -138,33 +158,26 @@ EOF
 }
 
 register_cron() {
-  log_step "Step 6. 크론 등록"
-
+  log_step "크론 등록"
   read -p "백업 실행 주기 (기본값: 매일 01:00 → '0 1 * * *'): " CRON_EXPR
   CRON_EXPR=${CRON_EXPR:-"0 1 * * *"}
-
   (crontab -l 2>/dev/null | grep -v "$BACKUP_SCRIPT"; echo "$CRON_EXPR $BACKUP_SCRIPT") | crontab -
-
   log_ok "크론 등록 완료: $CRON_EXPR $BACKUP_SCRIPT"
 }
 
 uninstall() {
   log_step "Uninstall 모드 실행"
-
   read -p "삭제할 마운트 경로 입력 (/mnt/nfs): " MOUNTPOINT
   MOUNTPOINT=${MOUNTPOINT:-/mnt/nfs}
 
-  # fstab 정리
   if grep -q "$MOUNTPOINT" /etc/fstab; then
     sudo sed -i "\|$MOUNTPOINT|d" /etc/fstab
     log_ok "/etc/fstab 에서 $MOUNTPOINT 제거됨"
   fi
 
-  # cron 정리
   (crontab -l 2>/dev/null | grep -v "$BACKUP_SCRIPT") | crontab -
   log_ok "crontab 에서 $BACKUP_SCRIPT 제거됨"
 
-  # 스크립트와 로그 삭제
   if [ -f "$BACKUP_SCRIPT" ]; then
     rm -f "$BACKUP_SCRIPT"
     log_ok "백업 스크립트 삭제됨: $BACKUP_SCRIPT"
@@ -172,7 +185,7 @@ uninstall() {
 
   if ls /docker/docker-backup.log* >/dev/null 2>&1; then
     rm -f /docker/docker-backup.log*
-    log_ok "백업 로그파일 삭제됨: /docker/docker-backup.log*"
+    log_ok "백업 로그파일 삭제됨"
   fi
 
   log_ok "Uninstall 완료"
@@ -186,8 +199,9 @@ main() {
   echo "══════════════════════════════════════"
   echo "  Docker 백업 스크립트 설정 관리자"
   echo "══════════════════════════════════════"
-  echo "1) Install (설치)"
-  echo "2) Uninstall (삭제)"
+  echo "1) NFS 백업 설정"
+  echo "2) MP(마운트포인트) 백업 설정"
+  echo "3) Uninstall (삭제)"
   echo "q) 종료"
   echo "══════════════════════════════════════"
   echo
@@ -195,15 +209,21 @@ main() {
   read -p "원하는 작업을 선택하세요: " choice
   case "$choice" in
     1)
-      get_user_input
+      get_user_input_nfs
       prepare_mountpoint
       update_fstab
       mount_nfs
       generate_backup_script
       register_cron
-      log_ok "모든 단계 완료 (INSTALL)"
+      log_ok "모든 단계 완료 (NFS 백업)"
       ;;
     2)
+      get_user_input_mp
+      generate_backup_script
+      register_cron
+      log_ok "모든 단계 완료 (MP 백업)"
+      ;;
+    3)
       uninstall
       ;;
     q|Q)
