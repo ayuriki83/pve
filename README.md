@@ -49,7 +49,6 @@ cd /tmp/scripts && ./pve_partition.sh
 ```
 # Install synology
 cd /tmp/scripts && ./synology.sh
-
 ```
 **Running in a synology**
 ```
