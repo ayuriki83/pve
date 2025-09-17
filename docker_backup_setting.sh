@@ -38,7 +38,7 @@ get_user_input_nfs() {
   MOUNTPOINT=${MOUNTPOINT:-/mnt/nfs}
 
   export NFS_IP NFS_SHARE MOUNTPOINT
-  log_ok "입력값 → IP: $NFS_IP, SHARE: $NFS_SHARE, MOUNT: $MOUNTPOINT"
+  log_info "입력값 → IP: $NFS_IP, SHARE: $NFS_SHARE, MOUNT: $MOUNTPOINT"
 }
 
 # STEP B. MP 경로 선택
@@ -69,14 +69,14 @@ get_user_input_mp() {
     fi
   done
 
-  log_ok "선택된 마운트 경로: $MOUNTPOINT"
+  log_info "선택된 마운트 경로: $MOUNTPOINT"
 }
 
 prepare_mountpoint() {
   log_step "마운트 경로 준비"
   if [ ! -d "$MOUNTPOINT" ]; then
     sudo mkdir -p "$MOUNTPOINT"
-    log_ok "마운트 경로 생성됨: $MOUNTPOINT"
+    log_info "마운트 경로 생성됨: $MOUNTPOINT"
   else
     log_info "마운트 경로 이미 존재: $MOUNTPOINT"
   fi
@@ -90,7 +90,7 @@ update_fstab() {
     log_info "fstab에 이미 등록됨: $MOUNTPOINT"
   else
     echo "$FSTAB_LINE" | sudo tee -a /etc/fstab
-    log_ok "fstab에 등록 완료"
+    log_info "fstab에 등록 완료"
   fi
 }
 
@@ -98,7 +98,7 @@ mount_nfs() {
   log_step "NFS 마운트 적용"
   sudo mount -a
   if findmnt -t nfs4 "$MOUNTPOINT" > /dev/null; then
-    log_ok "NFS 마운트 성공: $MOUNTPOINT"
+    log_info "NFS 마운트 성공: $MOUNTPOINT"
   else
     log_error "NFS 마운트 실패"
     exit 1
@@ -154,15 +154,74 @@ echo "복사 작업 종료: \$(date)" | tee -a "\$LOGFILE"
 EOF
 
   chmod +x "$BACKUP_SCRIPT"
-  log_ok "백업 스크립트 생성 완료: $BACKUP_SCRIPT"
+  log_info "백업 스크립트 생성 완료: $BACKUP_SCRIPT"
 }
 
 register_cron() {
   log_step "크론 등록"
   read -p "백업 실행 주기 (기본값: 매일 01:00 → '0 1 * * *'): " CRON_EXPR
   CRON_EXPR=${CRON_EXPR:-"0 1 * * *"}
-  (crontab -l 2>/dev/null | grep -v "$BACKUP_SCRIPT"; echo "$CRON_EXPR $BACKUP_SCRIPT") | crontab -
-  log_ok "크론 등록 완료: $CRON_EXPR $BACKUP_SCRIPT"
+  
+  # 백업 스크립트 파일 존재 및 권한 확인
+  if [ ! -f "$BACKUP_SCRIPT" ]; then
+    log_error "백업 스크립트 파일이 없습니다: $BACKUP_SCRIPT"
+    return 1
+  fi
+  
+  if [ ! -x "$BACKUP_SCRIPT" ]; then
+    log_warn "백업 스크립트에 실행 권한이 없습니다. 권한을 추가합니다."
+    chmod +x "$BACKUP_SCRIPT"
+  fi
+  
+  # crontab 명령 실행 전에 임시 파일로 테스트
+  TEMP_CRON="/tmp/new_cron_$$"
+  
+  # 기존 crontab 내용 + 새 크론 작업을 임시 파일에 작성
+  {
+    crontab -l 2>/dev/null | grep -v "$BACKUP_SCRIPT" || true
+    echo "$CRON_EXPR $BACKUP_SCRIPT"
+  } > "$TEMP_CRON"
+  
+  # crontab 등록 시도
+  if crontab "$TEMP_CRON"; then
+    log_info "crontab 명령 실행 성공"
+    
+    # 실제 등록 확인
+    sleep 1  # 잠시 대기
+    if crontab -l | grep -q "$BACKUP_SCRIPT"; then
+      log_success "크론 등록 성공: $CRON_EXPR $BACKUP_SCRIPT"
+      echo "등록된 백업 크론:"
+      crontab -l | grep "$BACKUP_SCRIPT"
+    else
+      log_error "crontab 명령은 성공했으나 등록되지 않음"
+    fi
+  else
+    log_error "crontab 명령 실행 실패 (종료코드: $?)"
+  fi
+  
+  # 임시 파일 정리
+  rm -f "$TEMP_CRON"
+  
+  # 크론 데몬 상태 확인
+  if command -v systemctl >/dev/null; then
+    if systemctl is-active --quiet cron 2>/dev/null; then
+      echo "크론 서비스(cron) 실행 중"
+    elif systemctl is-active --quiet crond 2>/dev/null; then
+      echo "크론 서비스(crond) 실행 중"  
+    else
+      log_warn "크론 서비스가 실행되지 않고 있습니다"
+      echo "다음 명령으로 크론 서비스를 시작하세요:"
+      echo "  sudo systemctl start cron"
+      echo "  또는"
+      echo "  sudo systemctl start crond"
+    fi
+  elif command -v service >/dev/null; then
+    if service cron status >/dev/null 2>&1; then
+      echo "크론 서비스 실행 중"
+    else
+      log_warn "크론 서비스 상태를 확인할 수 없습니다"
+    fi
+  fi
 }
 
 uninstall() {
@@ -172,23 +231,23 @@ uninstall() {
 
   if grep -q "$MOUNTPOINT" /etc/fstab; then
     sudo sed -i "\|$MOUNTPOINT|d" /etc/fstab
-    log_ok "/etc/fstab 에서 $MOUNTPOINT 제거됨"
+    log_info "/etc/fstab 에서 $MOUNTPOINT 제거됨"
   fi
 
   (crontab -l 2>/dev/null | grep -v "$BACKUP_SCRIPT") | crontab -
-  log_ok "crontab 에서 $BACKUP_SCRIPT 제거됨"
+  log_info "crontab 에서 $BACKUP_SCRIPT 제거됨"
 
   if [ -f "$BACKUP_SCRIPT" ]; then
     rm -f "$BACKUP_SCRIPT"
-    log_ok "백업 스크립트 삭제됨: $BACKUP_SCRIPT"
+    log_info "백업 스크립트 삭제됨: $BACKUP_SCRIPT"
   fi
 
   if ls /docker/docker-backup.log* >/dev/null 2>&1; then
     rm -f /docker/docker-backup.log*
-    log_ok "백업 로그파일 삭제됨"
+    log_info "백업 로그파일 삭제됨"
   fi
 
-  log_ok "Uninstall 완료"
+  log_info "Uninstall 완료"
 }
 
 # ==============================
@@ -215,13 +274,13 @@ main() {
       mount_nfs
       generate_backup_script
       register_cron
-      log_ok "모든 단계 완료 (NFS 백업)"
+      log_info "모든 단계 완료 (NFS 백업)"
       ;;
     2)
       get_user_input_mp
       generate_backup_script
       register_cron
-      log_ok "모든 단계 완료 (MP 백업)"
+      log_info "모든 단계 완료 (MP 백업)"
       ;;
     3)
       uninstall
