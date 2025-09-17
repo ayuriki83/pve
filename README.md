@@ -58,11 +58,6 @@ cd /tmp/scripts && ./synology.sh
 - Create a Backup Folder
 - Assign the Backup Folder to NFS (Enable NFS Options, IP Range)
 ```
-**Running in a container**
-```
-# NFS Backup Setting
-cd /tmp/scripts && ./nfs_backup.sh
-```
 
 ### Step3. LXC Container
 **Running in a proxmox**
@@ -72,11 +67,14 @@ cd /tmp/scripts && ./lxc_create.sh
 ```
 **Running in a container**
 ```
-# pct enter $CT_ID
-
 # Management Docker 
 cd /tmp/scripts && ./docker.sh
 
 # Management Caddy (Optional)
 cd /tmp/scripts && ./caddy_setup.sh
+```
+**Running in a container**
+```
+# Docker Backup Setting
+cd /tmp/scripts && ./docker_backup_setting.sh
 ```
