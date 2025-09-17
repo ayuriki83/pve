@@ -41,45 +41,44 @@ cd /tmp/scripts
 
 # 1: Proxmox init
 ./pve_init.sh
-
-# 2: LXC Container Create
-./lxc_create.sh
 ```
 
-### Step2. LXC Container
-```
-# working on container
-# pct enter $CT_ID
-
-# 3: Management Docker 
-cd /tmp/scripts && ./docker.sh
-
-# 4: Management Caddy (Optional)
-cd /tmp/scripts && ./caddy_setup.sh
-```
-
-### Step3. (Optional) Synology
+### Step2. (Optional) Synology
 ```
 # working on proxmox
 
-# 5: Install synology
+# 2: Install synology
 cd /tmp/scripts && ./synology.sh
 ```
-
-### Step3-1. (Optional) Synology nfs Backup
 ```
 # working on synology
 
-# 6: nfs folder share
+# 3: nfs folder share
 - nfs service activate
 - backup folder create
 - backup folder edit (nfs option active. ip range)
 ```
-
-### Step3-2. (Optional) nfs Backup Setting
 ```
 # working on container
 
-# 7: NFS Backup Setting
+# 4: NFS Backup Setting
 cd /tmp/scripts && ./backup_setting.sh
+```
+
+### Step3. LXC Container
+```
+# working on proxmox
+
+# 5: LXC Container Create
+./lxc_create.sh
+```
+```
+# working on container
+# pct enter $CT_ID
+
+# 6: Management Docker 
+cd /tmp/scripts && ./docker.sh
+
+# 7: Management Caddy (Optional)
+cd /tmp/scripts && ./caddy_setup.sh
 ```
