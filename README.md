@@ -53,7 +53,7 @@ cd /tmp/scripts && ./synology.sh
 ```
 **Running in a synology**
 ```
-# Setting Up NFS Folder Sharing
+# (Optional) Setting Up NFS Folder Sharing
 - Enable the NFS Service
 - Create a Backup Folder
 - Assign the Backup Folder to NFS (Enable NFS Options, IP Range)
@@ -72,9 +72,7 @@ cd /tmp/scripts && ./docker.sh
 
 # (Optional) Management Caddy
 cd /tmp/scripts && ./caddy_setup.sh
-```
-**Running in a container**
-```
+
 # (Optional) Docker Backup Setting 
 cd /tmp/scripts && ./docker_backup_setting.sh
 ```
