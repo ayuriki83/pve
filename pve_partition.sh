@@ -364,18 +364,33 @@ setup_usb_devices() {
                 storage_name="usb${usb_count}"
             fi
             
-            log_warn "⚠️  주의: USB 디스크 /dev/$usb_disk의 모든 데이터가 삭제됩니다!"
+            # 기존 파티션 확인 (ext4 여부 체크)
+            local existing_partition=$(lsblk -nr -o NAME,FSTYPE /dev/$usb_disk | awk '$2=="ext4"{print $1}' | head -n1)
             
-            if confirm_action "USB 디스크 /dev/$usb_disk를 $mount_path에 설정하시겠습니까?"; then
-                # 기존 시그니처 제거 및 파티션 테이블 생성
-                wipefs -a /dev/$usb_disk >/dev/null 2>&1
-                parted /dev/$usb_disk --script mklabel gpt
-                
-                # 공통 함수 사용하여 디렉토리 설정
-                setup_directory_disk "$usb_disk" "$storage_name"
-                #setup_directory_storage "$usb_disk" "$mount_path" "$storage_name" "USB-${usb_count}"
+            if [[ -n "$existing_partition" ]]; then
+                log_warn "⚠️  USB 디스크 /dev/$usb_disk 에 ext4 파티션(/dev/$existing_partition)이 이미 존재합니다."
+                if confirm_action "기존 파티션을 재사용하시겠습니까? (No 선택 시 초기화 후 새로 구성)"; then
+                    log_info "기존 ext4 파티션 /dev/$existing_partition 를 재사용합니다"
+                    setup_directory_disk "$existing_partition" "$storage_name"
+                else
+                    log_warn "⚠️  주의: USB 디스크 /dev/$usb_disk 의 모든 데이터가 삭제됩니다!"
+                    if confirm_action "정말 초기화 후 새로 구성하시겠습니까?"; then
+                        wipefs -a /dev/$usb_disk >/dev/null 2>&1
+                        parted /dev/$usb_disk --script mklabel gpt
+                        setup_directory_disk "$usb_disk" "$storage_name"
+                    else
+                        log_info "USB 디스크 /dev/$usb_disk 설정을 건너뜁니다"
+                    fi
+                fi
             else
-                log_info "USB 디스크 /dev/$usb_disk 설정을 건너뜁니다"
+                log_warn "⚠️  주의: USB 디스크 /dev/$usb_disk의 모든 데이터가 삭제됩니다!"
+                if confirm_action "초기화 후 새로 구성하시겠습니까?"; then
+                    wipefs -a /dev/$usb_disk >/dev/null 2>&1
+                    parted /dev/$usb_disk --script mklabel gpt
+                    setup_directory_disk "$usb_disk" "$storage_name"
+                else
+                    log_info "USB 디스크 /dev/$usb_disk 설정을 건너뜁니다"
+                fi
             fi
         else
             log_info "USB 디스크 /dev/$usb_disk 설정을 건너뜁니다"
