@@ -198,7 +198,7 @@ create_vm_and_set() {
 
   # 디스크, 부트로더, USB args 조합
   BOOTLOADER_ARGS="-drive if=none,id=synoboot,format=raw,file=$IMG_PATH -device qemu-xhci,id=xhci -device usb-storage,bus=xhci.0,drive=synoboot,bootindex=0"
-  SATA_ARGS="--sata0 $DISKPATH"
+  SATA_ARGS="--sata0 $DISKPATH,ssd=on"
   if [ -n "$USB_PATH" ]; then
     USB_ARGS="-drive if=none,id=usbdisk,format=raw,file=$USB_PATH -device usb-storage,bus=xhci.0,drive=usbdisk"
   else
