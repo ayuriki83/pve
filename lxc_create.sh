@@ -384,7 +384,7 @@ start_and_initialize() {
             if pct push $CT_ID "$SCRIPT_DIR/$file" "/tmp/scripts/$file"; then
                 log_success "업로드 완료: $file"
 
-                if [[ "$file" == "docker.sh" || "$file" == "caddy_setup.sh" ]]; then
+                if [[ "$file" == "docker.sh" || "$file" == "caddy_setup.sh" || "$file" == "docker_backup_setting.sh" ]]; then
                     pct exec $CT_ID -- chmod +x /tmp/scripts/$file
                     log_success "실행권한 부여 완료: $file"
                 fi
