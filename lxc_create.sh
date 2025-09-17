@@ -145,6 +145,9 @@ CORES=${CORES:-10}
 CPU_LIMIT=${CPU_LIMIT:-6}
 CPU_UNITS=${CPU_UNITS:-400}
 UNPRIVILEGED=${UNPRIVILEGED:-0}
+DIR_BACKUP=${DIR_BACKUP}
+DIR_BACKUP_UBUNTU="${DIR_BACKUP}/ubuntu"
+MNT_BACKUP=${MNT_BACKUP:-"/mnt/backup"}
 
 # Root 권한 확인
 if [[ $EUID -ne 0 ]]; then
@@ -278,10 +281,24 @@ configure_lxc() {
 
     local lxc_conf="/etc/pve/lxc/${CT_ID}.conf"
 
-    cat >> "$lxc_conf" <<EOF
+    if [ -n "$DIR_BACKUP" ]; then
+        cat >> "$lxc_conf" <<EOF
+mp0: $DIR_BACKUP_UBUNTU,mp=$MNT_BACKUP
 lxc.cgroup2.devices.allow: c 10:229 rwm
 lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file
+lxc.apparmor.profile: unconfined
+lxc.cgroup2.devices.allow: a
+lxc.cap.drop:
 EOF
+    else
+        cat >> "$lxc_conf" <<EOF
+lxc.cgroup2.devices.allow: c 10:229 rwm
+lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file
+lxc.apparmor.profile: unconfined
+lxc.cgroup2.devices.allow: a
+lxc.cap.drop:
+EOF
+    fi
     
     log_success "기본 LXC 설정 추가 완료"
 }
