@@ -28,6 +28,16 @@ NFS_SHARE=""
 MOUNTPOINT=""
 BACKUP_SCRIPT="/docker/docker-backup.sh"
 
+# 헤더 출력 함수
+show_header() {
+    local title="$1"
+    echo
+    echo -e "${PURPLE}════════════════════════════════════════════════════════════${NC}"
+    echo -e "${PURPLE}   $title${NC}"
+    echo -e "${PURPLE}════════════════════════════════════════════════════════════${NC}"
+    echo
+}
+
 # STEP A. NFS 입력 받기
 get_user_input_nfs() {
   log_step "NFS 백업 설정"
@@ -254,17 +264,12 @@ uninstall() {
 # Main
 # ==============================
 main() {
-  echo
-  echo "══════════════════════════════════════"
-  echo "  Docker 백업 스크립트 설정 관리자"
-  echo "══════════════════════════════════════"
+  show_header "Docker 백업 스크립트 설정 관리자"
+  
   echo "1) NFS 백업 설정"
   echo "2) MP(마운트포인트) 백업 설정"
   echo "3) Uninstall (삭제)"
   echo "q) 종료"
-  echo "══════════════════════════════════════"
-  echo
-
   read -p "원하는 작업을 선택하세요: " choice
   case "$choice" in
     1)
