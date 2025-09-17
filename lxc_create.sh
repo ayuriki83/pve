@@ -376,6 +376,7 @@ start_and_initialize() {
         "docker.nfo"
         "docker.sh"
         "caddy_setup.sh"
+        "docker_backup_setting.sh"
     )
     
     for file in "${files_to_upload[@]}"; do
