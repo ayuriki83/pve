@@ -81,5 +81,5 @@ cd /tmp/scripts && ./synology.sh
 # working on container
 
 # 7: NFS Backup Setting
-cd /tmp/scripts && ./install_backup.sh
+cd /tmp/scripts && ./backup_setting.sh
 ```
