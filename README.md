@@ -1,5 +1,5 @@
-# Proxmox
-Proxmox + LXC(Ubuntu) + Synology
+# Proxmox 9
+Proxmox 9 + LXC(Ubuntu) + Synology
 
 ### Step0. Initial
 ```
@@ -70,11 +70,11 @@ cd /tmp/scripts && ./lxc_create.sh
 # Management Docker 
 cd /tmp/scripts && ./docker.sh
 
-# Management Caddy (Optional)
+# (Optional) Management Caddy
 cd /tmp/scripts && ./caddy_setup.sh
 ```
 **Running in a container**
 ```
-# Docker Backup Setting
+# (Optional) Docker Backup Setting 
 cd /tmp/scripts && ./docker_backup_setting.sh
 ```
