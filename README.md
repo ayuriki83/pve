@@ -1,5 +1,5 @@
-# Proxmox
-Proxmox + LXC(Ubuntu) + Synology
+# Proxmox 9
+Proxmox 9 + LXC(Ubuntu) + Synology
 
 ### Step0. Initial
 ```
@@ -27,34 +27,51 @@ Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
 EOF
 
 apt update && apt upgrade -y
-apt install curl wget htop tree rsync neofetch git vim parted nfs-common net-tools -y
+apt install curl wget htop tree rsync git vim parted nfs-common net-tools -y
 
 mkdir -p /tmp/scripts && cd /tmp/scripts
-git clone https://github.com/ayuriki83/pve.git .
+git clone -b working --single-branch https://github.com/ayuriki83/pve.git .
 chmod +x pve_init.sh && chmod +x pve_partition.sh && chmod +x lxc_create.sh
 ```
 
 ### Step1. Proxmox Host
+**Running in a proxmox**
 ```
-cd /tmp/scripts
+# Proxmox init
+cd /tmp/scripts && ./pve_init.sh
 
-# 1: Proxmox init
-./pve_init.sh
-
-# 2: Partitioning
-./pve_partition.sh
-
-# 3: LXC Container Create
-./lxc_create.sh
+# Partitioning (If you are not running Synology)
+cd /tmp/scripts && ./pve_partition.sh
 ```
 
-### Step2. LXC Container
+### Step2. (Optional) Synology
+**Running in a proxmox**
 ```
-pct enter $CT_ID
+# Install synology
+cd /tmp/scripts && ./synology.sh
+```
+**Running in a synology**
+```
+# (Optional) Setting Up NFS Folder Sharing
+- Enable the NFS Service
+- Create a Backup Folder
+- Assign the Backup Folder to NFS (Enable NFS Options, IP Range)
+```
 
-# 4: Management Docker 
+### Step3. LXC Container
+**Running in a proxmox**
+```
+# LXC Container Create
+cd /tmp/scripts && ./lxc_create.sh
+```
+**Running in a container**
+```
+# Management Docker 
 cd /tmp/scripts && ./docker.sh
 
-# 5: Management Caddy (Optional)
+# (Optional) Management Caddy
 cd /tmp/scripts && ./caddy_setup.sh
+
+# (Optional) Docker Backup Setting 
+cd /tmp/scripts && ./docker_backup_setting.sh
 ```

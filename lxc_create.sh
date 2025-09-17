@@ -134,25 +134,19 @@ ENV_FILE="$SCRIPT_DIR/pve.env"
 load_config "$ENV_FILE"
 
 # 환경변수 기본값 설정
-MAIN=${MAIN:-"main"}
-VG_NAME="vg-$MAIN"
-LV_NAME="lv-$MAIN"
-LVM_NAME="lvm-$MAIN"
 CT_ID=${CT_ID:-101}
 HOSTNAME=${HOSTNAME:-"Ubuntu"}
-STORAGE=${LVM_NAME:-"lvm-main"}
-ROOTFS=${ROOTFS:-128}
-MEMORY_GB=${MEMORY_GB:-18}
+STORAGE=${LVM_NAME:-"local-lvm"}
+ROOTFS=${ROOTFS:-400}
+MEMORY_GB=${MEMORY_GB:-20}
 MEMORY=$((MEMORY_GB * 1024))
 SWAP=${SWAP:-2048}
-CORES=${CORES:-6}
+CORES=${CORES:-10}
 CPU_LIMIT=${CPU_LIMIT:-6}
+CPU_UNITS=${CPU_UNITS:-400}
 UNPRIVILEGED=${UNPRIVILEGED:-0}
-RCLONE_GB=${RCLONE_GB:-256}
-RCLONE_SIZE="${RCLONE_GB}G"
-LV_RCLONE=${LV_RCLONE:-"lv-rclone"}
-MNT_RCLONE=${MNT_RCLONE:-"/mnt/rclone"}
 DIR_BACKUP=${DIR_BACKUP}
+DIR_BACKUP_UBUNTU="${DIR_BACKUP}/ubuntu"
 MNT_BACKUP=${MNT_BACKUP:-"/mnt/backup"}
 
 # Root 권한 확인
@@ -251,6 +245,7 @@ create_container() {
     echo -e "${CYAN}  - 스왑: ${SWAP}${NC}"
     echo -e "${CYAN}  - CPU 코어: $CORES${NC}"
     echo -e "${CYAN}  - CPU 제한: $CPU_LIMIT${NC}"
+    echo -e "${CYAN}  - CPU 우선: $CPU_UNITS${NC}"
     echo -e "${CYAN}  - 권한 모드: $([ $UNPRIVILEGED -eq 1 ] && echo "Unprivileged" || echo "Privileged")${NC}"
     echo -e "${CYAN}  - IP 주소: $IP${NC}"
     
@@ -264,6 +259,7 @@ create_container() {
         --swap $SWAP \
         --cores $CORES \
         --cpulimit $CPU_LIMIT \
+        --cpuunits $CPU_UNITS \
         --net0 name=eth0,bridge=vmbr0,ip=$IP,gw=$GATEWAY \
         --features nesting=1,keyctl=1 \
         --unprivileged $UNPRIVILEGED \
@@ -277,40 +273,17 @@ create_container() {
 }
 
 # 4단계: RCLONE 저장소 및 LXC 설정
-configure_rclone_and_lxc() {
-    log_step "단계 4/5: RCLONE 저장소 생성 및 LXC 설정"
-    
-    local lv_path="/dev/${VG_NAME}/${LV_RCLONE}"
-    local lxc_conf="/etc/pve/lxc/${CT_ID}.conf"
-    
-    # RCLONE LV 생성
-    log_info "RCLONE 논리 볼륨 생성 중... (크기: $RCLONE_SIZE)"
-    
-    if ! lvs "$lv_path" >/dev/null 2>&1; then
-        if lvcreate -V "$RCLONE_SIZE" -T "${VG_NAME}/${LV_NAME}" -n "$LV_RCLONE"; then
-            log_success "논리 볼륨 생성 완료: $lv_path"
-        else
-            log_error "논리 볼륨 생성에 실패했습니다"
-            exit 1
-        fi
-        
-        if mkfs.ext4 "$lv_path" >/dev/null 2>&1; then
-            log_success "ext4 파일시스템 생성 완료"
-        else
-            log_error "파일시스템 생성에 실패했습니다"
-            exit 1
-        fi
-    else
-        log_info "RCLONE 논리 볼륨이 이미 존재합니다: $lv_path"
-    fi
+configure_lxc() {
+    log_step "단계 4/5: LXC 설정"
     
     # LXC 설정 추가
     log_info "LXC 컨테이너 설정 추가 중..."
 
+    local lxc_conf="/etc/pve/lxc/${CT_ID}.conf"
+
     if [ -n "$DIR_BACKUP" ]; then
         cat >> "$lxc_conf" <<EOF
-mp0: $lv_path,mp=$MNT_RCLONE
-mp1: $DIR_BACKUP,mp=$MNT_BACKUP
+mp0: $DIR_BACKUP_UBUNTU,mp=$MNT_BACKUP
 lxc.cgroup2.devices.allow: c 10:229 rwm
 lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file
 lxc.apparmor.profile: unconfined
@@ -319,7 +292,6 @@ lxc.cap.drop:
 EOF
     else
         cat >> "$lxc_conf" <<EOF
-mp0: $lv_path,mp=$MNT_RCLONE
 lxc.cgroup2.devices.allow: c 10:229 rwm
 lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file
 lxc.apparmor.profile: unconfined
@@ -404,6 +376,7 @@ start_and_initialize() {
         "docker.nfo"
         "docker.sh"
         "caddy_setup.sh"
+        "docker_backup_setting.sh"
     )
     
     for file in "${files_to_upload[@]}"; do
@@ -411,7 +384,7 @@ start_and_initialize() {
             if pct push $CT_ID "$SCRIPT_DIR/$file" "/tmp/scripts/$file"; then
                 log_success "업로드 완료: $file"
 
-                if [[ "$file" == "docker.sh" || "$file" == "caddy_setup.sh" ]]; then
+                if [[ "$file" == "docker.sh" || "$file" == "caddy_setup.sh" || "$file" == "docker_backup_setting.sh" ]]; then
                     pct exec $CT_ID -- chmod +x /tmp/scripts/$file
                     log_success "실행권한 부여 완료: $file"
                 fi
@@ -451,7 +424,7 @@ main() {
     create_container
     
     # 4단계: RCLONE 및 LXC 설정
-    configure_rclone_and_lxc
+    configure_lxc
     
     # 5단계: GPU 설정
     configure_gpu_settings
