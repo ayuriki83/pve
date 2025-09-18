@@ -263,7 +263,7 @@ create_container() {
         --net0 name=eth0,bridge=vmbr0,ip=$IP,gw=$GATEWAY \
         --features nesting=1,keyctl=1 \
         --unprivileged $UNPRIVILEGED \
-        --description "Docker LXC ${ROOTFS}GB rootfs with Docker" \
+        --description "Docker LXC ${ROOTFS}GB rootfs with RCLONE" \
         >/dev/null 2>&1; then
         log_success "LXC 컨테이너 생성 완료"
     else
