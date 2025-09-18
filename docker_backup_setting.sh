@@ -169,8 +169,8 @@ EOF
 
 register_cron() {
   log_step "크론 등록"
-  read -p "백업 실행 주기 (기본값: 매일 09:05 → '5 9 * * *'): " CRON_EXPR
-  CRON_EXPR=${CRON_EXPR:-"5 9 * * *"}
+  read -p "백업 실행 주기 (기본값: 매일 09:00 → '0 9 * * *'): " CRON_EXPR
+  CRON_EXPR=${CRON_EXPR:-"0 9 * * *"}
   
   # 백업 스크립트 파일 존재 및 권한 확인
   if [ ! -f "$BACKUP_SCRIPT" ]; then
