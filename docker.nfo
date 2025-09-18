@@ -613,16 +613,6 @@ __CADDYFILE_START__ /docker/caddy/conf/Caddyfile
         dns cloudflare {env.CLOUDFLARE_API_TOKEN}
     }
 
-    # Proxmox
-    @proxmox host pve.##DOMAIN##
-    handle @proxmox {
-        reverse_proxy https://##PROXMOX_IP##:8006 {
-            transport http {
-                tls_insecure_skip_verify
-            }
-        }
-    }
-
 _CADDYS_
 
     # 기본 응답 (매칭되지 않는 서브도메인)
