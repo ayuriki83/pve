@@ -106,7 +106,7 @@ expand_root_partition() {
 
 # 보안 설정
 configure_security() {
-    log_step "단계 1/2: 보안 설정"
+    log_step "단계 1/3: 보안 설정"
     
     # AppArmor 비활성화
     log_info "AppArmor 비활성화 중..."
@@ -161,14 +161,62 @@ configure_security() {
 
 # GPU 설정
 configure_gpu() {
-    log_step "단계 2/2: GPU 설정"
-    # (내용 그대로 유지)
-    # ...
+    log_step "단계 2/3: GPU 설정"
+    
+    echo
+    log_info "GPU 종류를 선택하세요:"
+    echo -e "${CYAN}  1) AMD (내장/외장 GPU)${NC}"
+    echo -e "${CYAN}  2) Intel (내장/외장 GPU)${NC}"
+    echo -e "${CYAN}  3) NVIDIA (외장 GPU)${NC}"
+    echo -e "${CYAN}  4) 건너뛰기${NC}"
+    
+    echo -ne "${CYAN}선택 [1-4]: ${NC}"
+    read -r gpu_choice
+    
+    case "$gpu_choice" in
+        1)
+            log_info "AMD GPU 설정 중..."
+            apt-get install -y pve-firmware >/dev/null 2>&1
+            sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="amd_iommu=on iommu=pt /' /etc/default/grub
+            log_success "AMD GPU 설정 완료"
+            ;;
+        2)
+            log_info "Intel GPU 설정 중..."
+            sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="intel_iommu=on iommu=pt /' /etc/default/grub
+            log_success "Intel GPU 설정 완료"
+            ;;
+        3)
+            log_info "NVIDIA GPU 설정 중..."
+            sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="iommu=pt /' /etc/default/grub
+            modprobe vfio-pci >/dev/null 2>&1 || true
+            echo -e "vfio\nvfio_iommu_type1\nvfio_pci\nvfio_virqfd" > /etc/modules-load.d/vfio.conf
+            log_success "NVIDIA GPU 설정 완료"
+            log_info "NVIDIA PCI 디바이스 ID는 'lspci -nn | grep -i nvidia' 명령으로 확인 가능합니다"
+            ;;
+        4)
+            log_info "GPU 설정을 건너뜁니다"
+            return 0
+            ;;
+        *)
+            log_warn "잘못된 선택입니다. GPU 설정을 건너뜁니다"
+            return 0
+            ;;
+    esac
+    
+    if [[ $gpu_choice =~ ^[1-3]$ ]]; then
+        log_info "GRUB 설정 업데이트 중..."
+        if update-grub >/dev/null 2>&1; then
+            log_success "GRUB 업데이트 완료"
+            log_info "재부팅 후 'ls -la /dev/dri/' 명령으로 GPU 장치를 확인하세요"
+        else
+            log_error "GRUB 업데이트에 실패했습니다"
+        fi
+    fi
 }
 
 # Cloudflare Tunnel 설정
 configure_cf_tunnel() {
-    show_header "Cloudflare Tunnel 설정 (Proxmox 전용)"
+    log_step "단계 3/3: Proxmox용 Cloudflare Tunner 설정"
 
     # cloudflared 설치
     log_info "cloudflared 설치 중..."
@@ -216,10 +264,20 @@ credentials-file: $CRED_FILE
 
 ingress:
   - hostname: $HOSTNAME_CF
-    service: https://localhost:8006
+    service: https://127.0.0.1:8006
+    originRequest:
+      noTLSVerify: true
   - service: http_status:404
 EOF
     log_success "config.yml 생성 완료 ($CONF_FILE)"
+
+    # DNS 자동 등록
+    log_info "Cloudflare DNS에 $HOSTNAME_CF 자동 연결 중..."
+    if cloudflared tunnel route dns $TUNNEL_NAME $HOSTNAME_CF >/dev/null 2>&1; then
+        log_success "DNS 레코드가 자동 등록되었습니다 (CNAME → cfargotunnel)."
+    else
+        log_warn "DNS 자동 등록에 실패했습니다. Cloudflare 대시보드에서 직접 확인하세요."
+    fi
 
     # 서비스 등록 및 실행
     log_info "cloudflared 서비스 등록 중..."
