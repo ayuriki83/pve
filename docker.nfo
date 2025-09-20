@@ -1,7 +1,7 @@
 __DOCKERS_START__
 __DOCKER_START__ name=caddy req=true
 __CMD_START__
-mkdir -p /docker/caddy/{conf,log}
+mkdir -p /docker/caddy/{conf,log,data,config}
 __CMD_END__
 __EOFS_START__
 __EOF_START__ /docker/caddy/docker-compose.yml
@@ -17,15 +17,12 @@ services:
     cap_add:
       - NET_ADMIN
     volumes:
-      - ./conf:/etc/caddy
+      - ./Caddyfile:/etc/caddy/Caddyfile
       - ./log:/var/log
-      - data:/data
-      - config:/config
+      - ./data:/data
+      - ./config:/config
     environment:
       - CLOUDFLARE_API_TOKEN=##API_TOKEN##
-volumes:
-  data:
-  config:
 networks:
   default:
     external: true
@@ -36,7 +33,7 @@ __DOCKER_END__
 
 __DOCKER_START__ name=portainer req=true 
 __CMD_START__
-mkdir -p /docker/portainer
+mkdir -p /docker/portainer/{data}
 __CMD_END__
 __EOFS_START__
 __EOF_START__ /docker/portainer/docker-compose.yml
@@ -49,7 +46,7 @@ services:
       - "9000:9000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - data:/data
+      - ./data:/data
     deploy:
       resources:
         limits:
@@ -58,8 +55,6 @@ services:
       - TZ=Asia/Seoul
       - PUID=0
       - PGID=0
-volumes:
-  data:
 networks:
   default:
     external: true
