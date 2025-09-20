@@ -1,7 +1,7 @@
 __DOCKERS_START__
 __DOCKER_START__ name=caddy req=true
 __CMD_START__
-mkdir -p /docker/caddy/{conf,log,data,config}
+mkdir -p /docker/caddy/{log,data,config}
 __CMD_END__
 __EOFS_START__
 __EOF_START__ /docker/caddy/docker-compose.yml
