@@ -165,8 +165,7 @@ load_config() {
 
 # 경로 및 파일 변수 설정
 CADDY_DIR="/docker/caddy"
-CONFIG_DIR="${CADDY_DIR}/conf"
-CADDYFILE="${CONFIG_DIR}/Caddyfile"
+CADDYFILE="${CADDY_DIR}/Caddyfile"
 DOCKER_COMPOSE_FILE="/docker/caddy/docker-compose.yml"
 SCRIPT_DIR=$(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
 LXC_ENV="${SCRIPT_DIR}/lxc.env"
@@ -426,7 +425,6 @@ main() {
     show_header "Docker Caddy 자동화 스크립트"
     
     log_info "스크립트 정보"
-    echo -e "${CYAN}  - Caddy 설정 디렉토리: $CONFIG_DIR${NC}"
     echo -e "${CYAN}  - Caddyfile 경로: $CADDYFILE${NC}"
     echo -e "${CYAN}  - 설정 파일: $LXC_ENV${NC}"
     
