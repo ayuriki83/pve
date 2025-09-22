@@ -597,7 +597,7 @@ __CADDY_END__
 __CADDYS_END__
 __DOCKER_LIST_END__
 
-__CADDYFILE_START__ /docker/caddy/conf/Caddyfile
+__CADDYFILE_START__ /docker/caddy/Caddyfile
 {
     email ##email##
 }
