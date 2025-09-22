@@ -493,7 +493,7 @@ generate_caddyfile() {
     caddyfile_template=${caddyfile_template//"_CADDYS_"/"$combined_caddy"}
     
     # Caddyfile 생성
-    local caddyfile_path="/docker/caddy/conf/Caddyfile"
+    local caddyfile_path="/docker/caddy/Caddyfile"
     if echo "$caddyfile_template" > "$caddyfile_path"; then
         log_success "Caddyfile 생성 완료: $caddyfile_path"
         log_success "포함된 서비스 블록: $caddy_blocks_count 개"
