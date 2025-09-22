@@ -602,7 +602,7 @@ main() {
     log_info "배포 완료 정보"
     echo -e "${CYAN}  - 설치된 서비스: ${#ALL_SERVICES[@]} 개${NC}"
     echo -e "${CYAN}  - 생성된 환경변수: ${#ENV_VALUES[@]} 개${NC}"
-    echo -e "${CYAN}  - Caddyfile: /docker/caddy/conf/Caddyfile${NC}"
+    echo -e "${CYAN}  - Caddyfile: /docker/caddy/Caddyfile${NC}"
     
     echo
     log_info "다음 단계"
