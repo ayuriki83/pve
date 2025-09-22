@@ -148,6 +148,9 @@ UNPRIVILEGED=${UNPRIVILEGED:-0}
 DIR_BACKUP=${DIR_BACKUP}
 DIR_BACKUP_UBUNTU="${DIR_BACKUP}/ubuntu"
 MNT_BACKUP=${MNT_BACKUP:-"/mnt/backup"}
+RCLONE_GB=${RCLONE_GB:-260}
+RCLONE_SIZE="${RCLONE_GB}G"
+MOUNT_POINT=${MOUNT_POINT:-"/mnt/rclone"}
 
 # Root 권한 확인
 if [[ $EUID -ne 0 ]]; then
@@ -273,34 +276,103 @@ create_container() {
 }
 
 # 4단계: RCLONE 저장소 및 LXC 설정
-configure_lxc() {
+configure_rclone_and_lxc() {
     log_step "단계 4/5: LXC 설정"
     
-    # LXC 설정 추가
-    log_info "LXC 컨테이너 설정 추가 중..."
+    # * RCLONE 별도 LV 생성/mount 여부 사용자가 선택
+    echo
+    log_info "컨테이너에 RCLONE 캐시 LV(논리 볼륨)를 별도로 제작/마운트 하시겠습니까?"
+    echo -ne "${YELLOW}구성할까요? [y/N]: ${NC}"
+    read rclone_choice
 
-    local lxc_conf="/etc/pve/lxc/${CT_ID}.conf"
-
-    if [ -n "$DIR_BACKUP" ]; then
-        cat >> "$lxc_conf" <<EOF
-mp0: $DIR_BACKUP_UBUNTU,mp=$MNT_BACKUP
-lxc.cgroup2.devices.allow: c 10:229 rwm
-lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file
-lxc.apparmor.profile: unconfined
-lxc.cgroup2.devices.allow: a
-lxc.cap.drop:
-EOF
-    else
-        cat >> "$lxc_conf" <<EOF
-lxc.cgroup2.devices.allow: c 10:229 rwm
-lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file
-lxc.apparmor.profile: unconfined
-lxc.cgroup2.devices.allow: a
-lxc.cap.drop:
-EOF
-    fi
+    # 조건 분기
+    if [[ $rclone_choice =~ ^[yY]$ || $rclone_choice =~ ^[yY][eE][sS]$ ]]; then
+        log_info "RCLONE 별도 LV 및 마운트 작업 시작"
+        local lv_path="/dev/pve/rclone"
+        local lv_mount="/mnt/rclone"
+        local lxc_conf="/etc/pve/lxc/${CT_ID}.conf"
+        
+        # RCLONE LV 생성
+        log_info "RCLONE 논리 볼륨 생성 중... (크기: $RCLONE_SIZE)"
+        
+        if ! lvs "$lv_path" >/dev/null 2>&1; then
+            if lvcreate -V "$RCLONE_SIZE" -T "pve/data" -n "rclone"; then
+                log_success "논리 볼륨 생성 완료: $lv_path"
+            else
+                log_error "논리 볼륨 생성에 실패했습니다"
+                exit 1
+            fi
+            
+            if mkfs.ext4 "$lv_path" >/dev/null 2>&1; then
+                log_success "ext4 파일시스템 생성 완료"
+            else
+                log_error "파일시스템 생성에 실패했습니다"
+                exit 1
+            fi
     
-    log_success "기본 LXC 설정 추가 완료"
+            mkdir -p "$lv_mount"
+        else
+            log_info "RCLONE 논리 볼륨이 이미 존재합니다: $lv_path"
+        fi
+        
+        # 마운트/ 자동화 추가
+        mount $lv_mount
+    
+        # fstab 중복 확인 및 추가
+        if ! grep -qs "^$lv_path[[:space:]]" /etc/fstab; then
+            echo "$lv_path $lv_mount ext4 defaults 0 2" >> /etc/fstab
+            log_info "fstab에 $lv_path 추가 완료"
+        else
+            log_warn "fstab에 이미 $lv_path 라인 존재"
+        fi
+    
+        # LXC 설정 conf 추가
+        log_info "LXC 컨테이너 설정 추가 중..."
+        if [ -n "$DIR_BACKUP" ]; then
+            cat >> "$lxc_conf" <<EOF
+mp0: $lv_mount,mp=$lv_mount
+mp1: $DIR_BACKUP_UBUNTU,mp=$MNT_BACKUP
+lxc.cgroup2.devices.allow: c 10:229 rwm
+lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file
+lxc.apparmor.profile: unconfined
+lxc.cgroup2.devices.allow: a
+lxc.cap.drop:
+EOF
+        else
+            cat >> "$lxc_conf" <<EOF
+mp0: $lv_mount,mp=$lv_mount
+lxc.cgroup2.devices.allow: c 10:229 rwm
+lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file
+lxc.apparmor.profile: unconfined
+lxc.cgroup2.devices.allow: a
+lxc.cap.drop:
+EOF
+        fi
+        log_success "기본 LXC 설정 추가 완료 (RCLONE LV 마운트 포함)"
+    else
+        log_info "RCLONE 별도 LV 및 마운트 작업은 건너뜁니다."
+        # 원하는 경우 여기서 추가 데이터 볼륨/바인드 마운트 없이 기본 conf만 작성 가능
+        local lxc_conf="/etc/pve/lxc/${CT_ID}.conf"
+        if [ -n "$DIR_BACKUP" ]; then
+            cat >> "$lxc_conf" <<EOF
+mp1: $DIR_BACKUP_UBUNTU,mp=$MNT_BACKUP
+lxc.cgroup2.devices.allow: c 10:229 rwm
+lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file
+lxc.apparmor.profile: unconfined
+lxc.cgroup2.devices.allow: a
+lxc.cap.drop:
+EOF
+        else
+            cat >> "$lxc_conf" <<EOF
+lxc.cgroup2.devices.allow: c 10:229 rwm
+lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file
+lxc.apparmor.profile: unconfined
+lxc.cgroup2.devices.allow: a
+lxc.cap.drop:
+EOF
+        fi
+        log_success "기본 LXC 설정 추가 완료 (RCLONE LV 마운트 없이)"
+    fi
 }
 
 # 5단계: GPU 설정
@@ -424,7 +496,7 @@ main() {
     create_container
     
     # 4단계: RCLONE 및 LXC 설정
-    configure_lxc
+    configure_rclone_and_lxc
     
     # 5단계: GPU 설정
     configure_gpu_settings
