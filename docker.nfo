@@ -220,8 +220,8 @@ __EOF_START__ /docker/rclone-after-service.sh
 #!/bin/bash
 
 # ff_plex는 항상 중지 및 기동
-docker stop ff 2>/dev/null &
-docker stop plex 2>/dev/null &
+docker stop ff >/dev/null 2>&1 &
+docker stop plex >/dev/null 2>&1 &
 wait
 echo "[정보] ff_plex 서비스가 중지되었습니다."
 
@@ -234,7 +234,7 @@ for service in kavita jellyfin; do
   fi
   # 폴더 있음 → 서비스 실행 여부 확인
   if docker ps --filter "name=$service" --format '{{.Names}}' | grep -qw "$service"; then
-    if docker stop "$service" 2>/dev/null; then
+    if docker stop "$service" >/dev/null 2>&1; then
       echo "[정보] $service 서비스가 정상적으로 중지되었습니다."
     else
       echo "[경고] $service 서비스 중지에 실패했습니다."
