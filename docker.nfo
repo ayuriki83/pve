@@ -14,13 +14,13 @@ services:
       - "80:80"
       - "443:443"
       - "443:443/udp"
-    cap_add:
-      - NET_ADMIN
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - ./log:/var/log
       - ./data:/data
       - ./config:/config
+    cap_add:
+      - NET_ADMIN
     environment:
       - CLOUDFLARE_API_TOKEN=##API_TOKEN##
 networks:
@@ -162,17 +162,17 @@ services:
     restart: unless-stopped
     ports:
       - 5574:5574
+    volumes:
+      - ./:/config
+      - ./:/log
+      - /rclone/Cache:/cache
+      - /rclone/Data:/data:rshared
     devices:
       - /dev/fuse
     cap_add:
       - SYS_ADMIN
     security_opt:
       - apparmor:unconfined
-    volumes:
-      - ./:/config
-      - ./:/log
-      - /rclone/Cache:/cache
-      - /rclone/Data:/data:rshared
     environment:
       - PUID=0
       - PGID=0
@@ -332,6 +332,11 @@ services:
       - libpms:/libpms
     devices:
       - "/dev/dri:/dev/dri"
+    logging:
+      driver: json-file
+      options:
+        max-size: "1024k"
+        max-file: "5"
     environment:
       - PUID=0
       - PGID=0
@@ -344,11 +349,6 @@ services:
       - CLEANUP_PTC_CRON=44 44 */4 * * *
       - CLEANUP_PTC_EXCEED_GB=30
       - CLEANUP_PTC_FREEUP_GB=10
-    logging:
-      driver: json-file
-      options:
-        max-size: "1024k"
-        max-file: "5"
 volumes:
   libpms:
 
@@ -399,18 +399,18 @@ services:
   jellyfin:
     image: jellyfin/jellyfin:latest
     container_name: jellyfin
-    devices:
-      - /dev/dri:/dev/dri         # Intel/NVIDIA GPU용 초기 예시
-    environment:
-      - PUID=0
-      - PGID=0
-      - TZ=Asia/Seoul             # 시간대
     ports:
       - 8096:8096                 # Jellyfin 기본 포트
     volumes:
       - ./config:/config
       - ./cache:/cache
       - /mnt/rclone/Data/GDRIVE/VIDEO/AV:/media      # 본인의 미디어 경로로 수정
+    devices:
+      - /dev/dri:/dev/dri         # Intel/NVIDIA GPU용 초기 예시
+    environment:
+      - PUID=0
+      - PGID=0
+      - TZ=Asia/Seoul             # 시간대
 networks:
   default:
     external: true
@@ -441,6 +441,11 @@ services:
   kavita:
     container_name: kavita
     image: ghcr.io/by275/kavita:v0.8.3.2-0.4.2
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./:/kavita/config
+      - /mnt/rclone/Data/GDRIVE/READING:/reading:rshared
     security_opt:
       - no-new-privileges:true
     logging:
@@ -448,16 +453,11 @@ services:
       options:
         max-size: "1024k"
         max-file: "5"
-    volumes:
-      - ./:/kavita/config
-      - /mnt/rclone/Data:/share/gds:rshared
-    ports:
-      - "5000:5000"
     environment:
       - PUID=0
       - PGID=0
       - TZ=Asia/Seoul
-      - WAIT_ANCHOR_DIRS=/share/gds/GDRIVE/READING
+      - WAIT_ANCHOR_DIRS=/reading
 networks:
   default:
     external: true
@@ -493,12 +493,12 @@ services:
       - "8090:8090"
     volumes:
       - ./:/beszel_data
-    environment:
-      - TZ=Asia/Seoul
     deploy:
       resources:
         limits:
           memory: 64M
+    environment:
+      - TZ=Asia/Seoul
 volumes:
   beszel_data:
 networks:
@@ -536,6 +536,8 @@ services:
         - '3001:3001'
     volumes:
         - './:/app/data'
+    environment:
+      - TZ=Asia/Seoul
 volumes:
   data:
     driver: local
