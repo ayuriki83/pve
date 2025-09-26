@@ -450,14 +450,14 @@ services:
         max-file: "5"
     volumes:
       - ./:/kavita/config
-      - /mnt/rclone/Data:/mnt/gds2:rshared
+      - /mnt/rclone/Data:/share/gds:rshared
     ports:
       - "5000:5000"
     environment:
       - PUID=0
       - PGID=0
       - TZ=Asia/Seoul
-      - WAIT_ANCHOR_DIRS=/mnt/gds2/GDRIVE/READING
+      - WAIT_ANCHOR_DIRS=/share/gds/GDRIVE/READING
 networks:
   default:
     external: true
