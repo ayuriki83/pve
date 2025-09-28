@@ -131,8 +131,8 @@ DEST_BASE="$MOUNTPOINT/docker"
 SCRIPT_DIR="\$(cd "\$(dirname "\$0")" && pwd)"
 LOGFILE="\$SCRIPT_DIR/docker-backup.log"
 
-# 로그 로테이션 (7일 지난 로그 삭제)
-find "\$SCRIPT_DIR" -maxdepth 1 -name "docker-backup.log.*" -type f -mtime +7 -exec rm -f {} \;
+# 로그 로테이션 (3일 지난 로그 삭제)
+find "\$SCRIPT_DIR" -maxdepth 1 -name "docker-backup.log.*" -type f -mtime +3 -exec rm -f {} \;
 if [ -f "\$LOGFILE" ]; then
   mv "\$LOGFILE" "\$LOGFILE.\$(date +%Y%m%d)"
 fi
