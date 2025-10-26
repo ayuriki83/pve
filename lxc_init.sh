@@ -311,7 +311,7 @@ EOF
 create_docker_network() {
     log_step "단계 9/$TOTAL_STEPS: Docker 사용자 네트워크 생성"
 
-    for i in "" 2; do
+    for i in 1 2; do
         eval net="DOCKER_BRIDGE_NET$i"
         eval gw="DOCKER_BRIDGE_GW$i"
         eval name="DOCKER_BRIDGE_NM$i"
@@ -377,7 +377,7 @@ configure_firewall() {
     fi
     
     # Docker 네트워크 허용
-    for i in "" 2; do
+    for i in 1 2; do
         eval net="DOCKER_BRIDGE_NET$i"
         eval gw="DOCKER_BRIDGE_GW$i"
         eval name="DOCKER_BRIDGE_NM$i"
@@ -431,7 +431,7 @@ configure_network_rules() {
     
     # NAT 규칙 추가
     log_info "NAT 규칙 설정 중..."
-    for i in "" 2; do
+    for i in 1 2; do
         eval net="DOCKER_BRIDGE_NET$i"
         eval gw="DOCKER_BRIDGE_GW$i"
         eval name="DOCKER_BRIDGE_NM$i"
