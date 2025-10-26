@@ -39,9 +39,6 @@ chmod +x pve_init.sh && chmod +x pve_partition.sh && chmod +x lxc_create.sh
 ```
 # Proxmox init
 cd /tmp/scripts && ./pve_init.sh
-
-# Partitioning (If you are not running Synology)
-cd /tmp/scripts && ./pve_partition.sh
 ```
 
 ### Step2. (Optional) Synology
@@ -66,6 +63,9 @@ cd /tmp/scripts && ./lxc_create.sh
 ```
 **Running in a container**
 ```
+# Partitioning (If you are backup)
+cd /tmp/scripts && ./pve_partition.sh
+
 # Management Docker 
 cd /tmp/scripts && ./docker.sh
 
