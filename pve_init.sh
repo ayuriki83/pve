@@ -300,7 +300,9 @@ main() {
     #expand_root_partition
     configure_security
     configure_gpu
-    configure_cf_tunnel   # 🔥 Cloudflare Tunnel 추가됨
+    if confirm_action "Cloudflare Tunnel 적용하시겠습니까?" "y"; then
+      configure_cf_tunnel
+    fi
     
     echo
     log_success "════════════════════════════════════════════════════════════"
