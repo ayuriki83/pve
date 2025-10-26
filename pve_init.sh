@@ -216,7 +216,7 @@ configure_gpu() {
 
 # Cloudflare Tunnel 설정
 configure_cf_tunnel() {
-    log_step "단계 3/3: Proxmox용 Cloudflare Tunner 설정"
+    log_step "단계 3/3: Proxmox용 Cloudflare Tunnel 설정"
 
     # cloudflared 설치
     log_info "cloudflared 설치 중..."
