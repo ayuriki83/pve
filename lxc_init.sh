@@ -58,9 +58,8 @@ TIMEZONE=${TIMEZONE:-"Asia/Seoul"}
 DOCKER_DATA_ROOT=${DOCKER_DATA_ROOT:-"/docker/core"}
 DOCKER_DNS1=${DOCKER_DNS1:-"8.8.8.8"}
 DOCKER_DNS2=${DOCKER_DNS2:-"1.1.1.1"}
-DOCKER_BRIDGE_NET=${DOCKER_BRIDGE_NET:-"172.18.0.0/16"}
-DOCKER_BRIDGE_GW=${DOCKER_BRIDGE_GW:-"172.18.0.1"}
-DOCKER_BRIDGE_NM=${DOCKER_BRIDGE_NM:-"ProxyNet"}
+DEFAULT_INFOS="ProxyNet|172.18.0.0/16|172.18.0.1;ProxyNet2|172.19.0.0/16|172.19.0.1"
+NETWORK_INFOS="${DOCKER_NETWORK_INFOS:-$DEFAULT_INFOS}"
 ALLOW_PORTS=${ALLOW_PORTS:-"80/tcp 443/tcp 443/udp 45876 5574 9999 32400"}
 
 # 총 단계 수
@@ -307,15 +306,26 @@ EOF
 # Docker 네트워크 생성
 create_docker_network() {
     log_step "단계 9/$TOTAL_STEPS: Docker 사용자 네트워크 생성"
+
+    IFS=';' read -ra NETWORKS <<< "$NETWORK_INFOS"
     
-    log_info "Docker 사용자 네트워크 생성 중..."
-    if docker network create --subnet=$DOCKER_BRIDGE_NET --gateway=$DOCKER_BRIDGE_GW $DOCKER_BRIDGE_NM >/dev/null 2>&1; then
-        log_success "Docker 네트워크 생성 완료: $DOCKER_BRIDGE_NM"
-        echo -e "${CYAN}  - 서브넷: $DOCKER_BRIDGE_NET${NC}"
-        echo -e "${CYAN}  - 게이트웨이: $DOCKER_BRIDGE_GW${NC}"
-    else
-        log_info "Docker 네트워크가 이미 존재하거나 생성에 실패했습니다"
-    fi
+    i=1
+    for netinfo in "${NETWORKS[@]}"; do
+        name=$(echo "$netinfo" | cut -d'|' -f1)
+        subnet=$(echo "$netinfo" | cut -d'|' -f2)
+        gw=$(echo "$netinfo" | cut -d'|' -f3)
+        
+        log_info "Docker 사용자 네트워크$i($name) 생성 중..."
+        if docker network create --subnet="$subnet" --gateway="$gw" "$name" >/dev/null 2>&1; then
+            log_success "Docker 네트워크$i($name) 생성 완료"
+            echo -e "${CYAN}  - 서브넷: $subnet${NC}"
+            echo -e "${CYAN}  - 게이트웨이: $gw${NC}"
+        else
+            log_info "Docker 네트워크$i($name)가 이미 존재하거나 생성에 실패했습니다"
+        fi
+        
+        ((i++))
+    done
 }
 
 # UFW 방화벽 설정
@@ -359,11 +369,20 @@ configure_firewall() {
     fi
     
     # Docker 네트워크 허용
-    if ufw allow from "$DOCKER_BRIDGE_NET" >/dev/null 2>&1; then
-        log_success "Docker 네트워크 허용 완료: $DOCKER_BRIDGE_NET"
-    else
-        log_warn "Docker 네트워크 허용 실패: $DOCKER_BRIDGE_NET"
-    fi
+    IFS=';' read -ra NETWORKS <<< "$NETWORK_INFOS"
+    i=1
+    for netinfo in "${NETWORKS[@]}"; do
+        name=$(echo "$netinfo" | cut -d'|' -f1)
+        subnet=$(echo "$netinfo" | cut -d'|' -f2)
+
+        if ufw allow from "$subnet" >/dev/null 2>&1; then
+            log_success "Docker 네트워크$i($name) 허용 완료: $subnet"
+        else
+            log_warn "Docker 네트워크$i($name) 허용 실패: $subnet"
+        fi
+      
+        ((i++))
+    done
     
     # UFW 활성화
     local ufw_status=$(ufw status 2>/dev/null | head -n1)
@@ -402,15 +421,24 @@ configure_network_rules() {
     
     # NAT 규칙 추가
     log_info "NAT 규칙 설정 중..."
-    if ! iptables -t nat -C POSTROUTING -s "$DOCKER_BRIDGE_NET" -o "$nat_iface" -j MASQUERADE 2>/dev/null; then
-        if iptables -t nat -A POSTROUTING -s "$DOCKER_BRIDGE_NET" -o "$nat_iface" -j MASQUERADE 2>/dev/null; then
-            log_success "NAT 규칙 추가 완료"
+    IFS=';' read -ra NETWORKS <<< "$NETWORK_INFOS"
+    i=1
+    for netinfo in "${NETWORKS[@]}"; do
+        name=$(echo "$netinfo" | cut -d'|' -f1)
+        subnet=$(echo "$netinfo" | cut -d'|' -f2)
+
+        if ! iptables -t nat -C POSTROUTING -s "$subnet" -o "$nat_iface" -j MASQUERADE 2>/dev/null; then
+            if iptables -t nat -A POSTROUTING -s "$subnet" -o "$nat_iface" -j MASQUERADE 2>/dev/null; then
+                log_success "NAT 규칙 추가 완료 : Docker 네트워크$i($name)"
+            else
+                log_warn "NAT 규칙 추가에 실패했습니다 : Docker 네트워크$i($name)"
+            fi
         else
-            log_warn "NAT 규칙 추가에 실패했습니다"
+            log_info "NAT 규칙이 이미 존재합니다 : Docker 네트워크$i($name)"
         fi
-    else
-        log_info "NAT 규칙이 이미 존재합니다"
-    fi
+      
+        ((i++))
+    done
     
     # UFW Docker 규칙 설정
     local ufw_after_rules="/etc/ufw/after.rules"
