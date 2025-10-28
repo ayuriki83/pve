@@ -65,9 +65,6 @@ cd /tmp/scripts && ./lxc_create.sh
 ```
 **Running in a container**
 ```
-# Partitioning (If you are backup)
-cd /tmp/scripts && ./pve_partition.sh
-
 # Management Docker 
 cd /tmp/scripts && ./docker.sh
 
