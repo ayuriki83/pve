@@ -277,7 +277,8 @@ create_container() {
     echo -e "${CYAN}  - CPU 제한: $CPU_LIMIT${NC}"
     echo -e "${CYAN}  - CPU 우선: $CPU_UNITS${NC}"
     echo -e "${CYAN}  - 권한 모드: $([ $UNPRIVILEGED -eq 1 ] && echo "Unprivileged" || echo "Privileged")${NC}"
-    echo -e "${CYAN}  - IP 주소: $IP${NC}"
+    echo -e "${CYAN}  - IP: $IP${NC}"
+    echo -e "${CYAN}  - GATEWAY: $GATEWAY${NC}"
     
     log_info "컨테이너 생성 중..."
     
