@@ -544,8 +544,10 @@ main() {
     echo -e "${CYAN}  - 상태: $(pct status $CT_ID)${NC}"
     
     echo
-    log_info "접속 방법"
+    log_info "접속 방법 및 추가 확인"
     echo -e "${CYAN}  - 호스트에서: pct enter $CT_ID${NC}"
+    echo -e "${CYAN}  - Docker 서비스 확인: docker --version${NC}"
+    echo -e "${CYAN}  - 네트워크 확인: docker network ls${NC}"
 }
 
 # 스크립트 실행
