@@ -157,7 +157,7 @@ __DOCKER_END__
 
 __DOCKER_START__ name=rclone req=true
 __CMD_START__
-mkdir -p /docker/rclone && mkdir -p /mnt/usb/gds/{Cache,Data} && mkdir -p /mnt/usb/docker && mkdir -p /mnt/usb/synology
+mkdir -p /docker/rclone && mkdir -p /mnt/disk/gds/{Cache,Data} && mkdir -p /mnt/disk/docker && mkdir -p /mnt/disk/synology
 __CMD_END__
 __EOFS_START__
 __EOF_START__ /docker/rclone/docker-compose.yml
@@ -171,8 +171,8 @@ services:
     volumes:
       - /docker/rclone/:/config
       - /docker/rclone/:/log
-      - /mnt/usb/gds/Cache:/cache
-      - /mnt/usb/gds/Data:/data:rshared
+      - /mnt/disk/gds/Cache:/cache
+      - /mnt/disk/gds/Data:/data:rshared
     devices:
       - /dev/fuse
     cap_add:
@@ -248,11 +248,11 @@ done
 echo "[정보] 서비스가 완전히 중지될 때까지 3초간 대기합니다..."
 sleep 3
 
-echo "[정보] /mnt/usb/gds/Data/GDRIVE 마운트 상태를 확인 중입니다..."
-while [ ! -d /mnt/usb/gds/Data/GDRIVE ]; do
+echo "[정보] /mnt/disk/gds/Data/GDRIVE 마운트 상태를 확인 중입니다..."
+while [ ! -d /mnt/disk/gds/Data/GDRIVE ]; do
   sleep 1
 done
-echo "[정보] /mnt/usb/gds/Data/GDRIVE가 마운트되었습니다."
+echo "[정보] /mnt/disk/gds/Data/GDRIVE가 마운트되었습니다."
 
 # I/O 안정화 대기
 echo "[정보] I/O 안정화를 위해 1초간 대기합니다..."
@@ -303,7 +303,7 @@ services:
     volumes:
       - /docker/ff:/data
       - /:/host
-      - /mnt/usb/gds/Data:/share/gds:rshared
+      - /mnt/disk/gds/Data:/share/gds:rshared
       - /docker/plex/libpms:/usr/lib/plexmediaserver
       - /docker/plex:/plex
     privileged: true
@@ -347,7 +347,7 @@ services:
       - /docker/plex/transcode:/transcode
       - /docker/plex/libpms:/libpms
       - type: bind
-        source: /mnt/usb/gds/Data
+        source: /mnt/disk/gds/Data
         target: /share/gds
         bind:
           propagation: rslave
@@ -411,9 +411,9 @@ services:
     ports:
       - "10000:9999"
     volumes:
-      - .:/data
+      - /docker/ff2:/data
       - /:/host
-      - /mnt/usb/gds/Data:/share/gds:rshared
+      - /mnt/disk/gds/Data:/share/gds:rshared
       - /docker/plex2/libpms:/usr/lib/plexmediaserver
       - /docker/plex2:/plex
     privileged: true
@@ -457,7 +457,7 @@ services:
       - /docker/plex2/transcode:/transcode
       - /docker/plex2/libpms:/libpms
       - type: bind
-        source: /mnt/usb/gds/Data
+        source: /mnt/disk/gds/Data
         target: /share/gds
         bind:
           propagation: rslave
@@ -515,7 +515,7 @@ services:
     volumes:
       - /docker/jellyfin/config:/config
       - /docker/jellyfin/cache:/cache
-      - /mnt/usb/gds/Data/GDRIVE/VIDEO/AV:/media      # 본인의 미디어 경로로 수정
+      - /mnt/disk/gds/Data/GDRIVE/VIDEO/AV:/media      # 본인의 미디어 경로로 수정
     devices:
       - /dev/dri:/dev/dri         # Intel/NVIDIA GPU용 초기 예시
     environment:
@@ -556,7 +556,7 @@ services:
       - "5000:5000"
     volumes:
       - /docker/kavita/:/kavita/config
-      - /mnt/usb/gds/Data/GDRIVE/READING:/reading:rshared
+      - /mnt/disk/gds/Data/GDRIVE/READING:/reading:rshared
     security_opt:
       - no-new-privileges:true
     logging:
