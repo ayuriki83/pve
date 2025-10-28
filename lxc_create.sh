@@ -494,9 +494,7 @@ start_and_initialize() {
     done
     
     log_info "컨테이너 내부 초기화 스크립트 실행 중..."
-    if pct exec $CT_ID -- bash /tmp/scripts/lxc_init.sh; then
-        log_success "초기화 스크립트 실행 완료"
-    else
+    if ! pct exec $CT_ID -- bash /tmp/scripts/lxc_init.sh; then
         log_error "초기화 스크립트 실행에 실패했습니다"
         exit 1
     fi
