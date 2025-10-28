@@ -517,12 +517,6 @@ main() {
     echo -e "${CYAN}  - UFW: $(systemctl is-active ufw)${NC}"
     echo -e "${CYAN}  - 시간대: $(timedatectl | grep "Time zone" | awk '{print $3}')${NC}"
     
-    echo
-    log_info "다음 단계"
-    echo -e "${CYAN}  1. 컨테이너 재시작: exit 후 pct restart <container_id>${NC}"
-    echo -e "${CYAN}  2. Docker 서비스 확인: docker --version${NC}"
-    echo -e "${CYAN}  3. 네트워크 확인: docker network ls${NC}"
-    
     log_success "초기화 스크립트 실행 완료!"
 }
 
