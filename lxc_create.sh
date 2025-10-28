@@ -378,9 +378,9 @@ configure_rclone_and_lxc() {
 
     # 원하는 경우 여기서 추가 데이터 볼륨/바인드 마운트 없이 기본 conf만 작성 가능
     local lxc_conf="/etc/pve/lxc/${CT_ID}.conf"
-    if ! mount | grep "$MNT_DISK"; then
+    if mount | grep "$MNT_DISK"; then
         cat >> "$lxc_conf" <<EOF
-mp1: $MNT_DISK,mp=$MNT_DISK
+mp0: $MNT_DISK,mp=$MNT_DISK
 lxc.cgroup2.devices.allow: c 10:229 rwm
 lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file
 lxc.apparmor.profile: unconfined
