@@ -32,6 +32,22 @@ show_header() {
     echo
 }
 
+# 디스크 정보 출력 함수
+show_disk_info() {
+    echo
+    log_info "현재 시스템의 디스크 정보"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    lsblk -o NAME,UUID,TYPE,SIZE,MOUNTPOINT | while IFS= read -r line; do
+        if [[ $line =~ ^NAME ]]; then
+            echo -e "${YELLOW} ${line} ${NC}"
+        else
+            echo -e "${CYAN} ${line} ${NC}"
+        fi
+    done
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo
+}
+
 # 설정 파일 로드 함수
 load_config() {
     local config_file="$1"
@@ -60,6 +76,22 @@ validate_ip() {
             return 1
         fi
     done
+    
+    return 0
+}
+
+# 디스크 입력 검증 함수
+validate_disk() {
+    local disk="$1"
+    
+    if [[ -z "$disk" ]]; then
+        return 1
+    fi
+    
+    if [[ ! -b "/dev/$disk" ]]; then
+        log_error "디스크 /dev/$disk를 찾을 수 없습니다"
+        return 1
+    fi
     
     return 0
 }
@@ -148,9 +180,7 @@ UNPRIVILEGED=${UNPRIVILEGED:-0}
 DIR_BACKUP=${DIR_BACKUP}
 DIR_BACKUP_UBUNTU="${DIR_BACKUP}/ubuntu"
 MNT_BACKUP=${MNT_BACKUP:-"/mnt/backup"}
-RCLONE_GB=${RCLONE_GB:-275}
-RCLONE_SIZE="${RCLONE_GB}G"
-MOUNT_POINT=${MOUNT_POINT:-"/mnt/rclone"}
+MNT_DISK=${MNT_DISK:-"/mnt/disk"}
 
 # Root 권한 확인
 if [[ $EUID -ne 0 ]]; then
@@ -161,7 +191,7 @@ fi
 
 # 1단계: Ubuntu 템플릿 준비
 prepare_template() {
-    log_step "단계 1/5: Ubuntu 템플릿 준비"
+    log_step "단계 1/7: Ubuntu 템플릿 준비"
     
     show_template_info
     
@@ -188,7 +218,7 @@ prepare_template() {
 
 # 2단계: 네트워크 설정 입력
 configure_network() {
-    log_step "단계 2/5: 네트워크 설정"
+    log_step "단계 2/7: 네트워크 설정"
     
     local gateway=$(ip route | awk '/default/ {print $3}')
     local current_ip=$(hostname -I | awk '{print $1}')
@@ -237,7 +267,7 @@ configure_network() {
 
 # 3단계: LXC 컨테이너 생성
 create_container() {
-    log_step "단계 3/5: LXC 컨테이너 생성"
+    log_step "단계 3/7: LXC 컨테이너 생성"
     
     log_info "컨테이너 설정 정보"
     echo -e "${CYAN}  - 컨테이너 ID: $CT_ID${NC}"
@@ -275,109 +305,107 @@ create_container() {
     fi
 }
 
-# 4단계: RCLONE 저장소 및 LXC 설정
-configure_rclone_and_lxc() {
-    log_step "단계 4/5: LXC 설정"
+# 4단계: 백업 디스크 설정 
+create_backup_disk() {
+    log_step "단계 4/7: 백업 디스크 설정"
     
-    # * RCLONE 별도 LV 생성/mount 여부 사용자가 선택
-    echo
-    log_info "컨테이너에 RCLONE 캐시 LV(논리 볼륨)를 별도로 제작/마운트 하시겠습니까?"
-    echo -ne "${YELLOW}구성할까요? [y/N]: ${NC}"
-    read rclone_choice
+    show_disk_info
+    
+    echo -ne "${CYAN}백업 디스크명을 입력하세요 (예: nvme1n1, sdb) [Enter로 건너뛰기]: ${NC}"
+    read backup_disk
+    
+    if [[ -z "$backup_disk" ]]; then
+        log_info "보조/백업 디스크 설정을 건너뜁니다"
+        return 0
+    fi
+    
+    if ! validate_disk "$backup_disk"; then
+        return 1
+    fi
 
-    # 조건 분기
-    if [[ $rclone_choice =~ ^[yY]$ || $rclone_choice =~ ^[yY][eE][sS]$ ]]; then
-        log_info "RCLONE 별도 LV 및 마운트 작업 시작"
-        local lv_path="/dev/pve/rclone"
-        local lv_mount="/mnt/rclone"
-        local lxc_conf="/etc/pve/lxc/${CT_ID}.conf"
-        
-        # RCLONE LV 생성 (실사용의 1.075배 지정해야함)
-        log_info "RCLONE 논리 볼륨 생성 중... (크기: $RCLONE_SIZE)"
-        
-        if ! lvs "$lv_path" >/dev/null 2>&1; then
-            if lvcreate -V "$RCLONE_SIZE" -T "pve/data" -n "rclone"; then
-                log_success "논리 볼륨 생성 완료: $lv_path"
-            else
-                log_error "논리 볼륨 생성에 실패했습니다"
-                exit 1
-            fi
-            
-            if mkfs.ext4 "$lv_path" >/dev/null 2>&1; then
-                log_success "ext4 파일시스템 생성 완료"
-            else
-                log_error "파일시스템 생성에 실패했습니다"
-                exit 1
-            fi
+    # 기존 시그니처 제거 및 파티션 테이블 생성
+    wipefs -a /dev/$backup_disk >/dev/null 2>&1
+    parted /dev/$backup_disk -s -a optimal mklabel gpt mkpart primary ext4 0% 100%
+    partition="/dev/${backup_disk}1"
     
-            mkdir -p "$lv_mount"
-        else
-            log_info "RCLONE 논리 볼륨이 이미 존재합니다: $lv_path"
-        fi
-        
-        # 마운트/ 자동화 추가
-        mount $lv_mount
-    
-        # fstab 중복 확인 및 추가
-        if ! grep -qs "^$lv_path[[:space:]]" /etc/fstab; then
-            echo "$lv_path $lv_mount ext4 defaults 0 2" >> /etc/fstab
-            log_info "fstab에 $lv_path 추가 완료"
-        else
-            log_warn "fstab에 이미 $lv_path 라인 존재"
-        fi
-    
-        # LXC 설정 conf 추가
-        log_info "LXC 컨테이너 설정 추가 중..."
-        if [ -n "$DIR_BACKUP" ]; then
-            cat >> "$lxc_conf" <<EOF
-mp0: $lv_mount,mp=$lv_mount
-mp1: $DIR_BACKUP_UBUNTU,mp=$MNT_BACKUP
-lxc.cgroup2.devices.allow: c 10:229 rwm
-lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file
-lxc.apparmor.profile: unconfined
-lxc.cgroup2.devices.allow: a
-lxc.cap.drop:
-EOF
-        else
-            cat >> "$lxc_conf" <<EOF
-mp0: $lv_mount,mp=$lv_mount
-lxc.cgroup2.devices.allow: c 10:229 rwm
-lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file
-lxc.apparmor.profile: unconfined
-lxc.cgroup2.devices.allow: a
-lxc.cap.drop:
-EOF
-        fi
-        log_success "기본 LXC 설정 추가 완료 (RCLONE LV 마운트 포함)"
+    # ext4 파일시스템 생성
+    if mkfs.ext4 "$partition" >/dev/null 2>&1; then
+        log_success "ext4 파일시스템 생성 완료"
     else
-        log_info "RCLONE 별도 LV 및 마운트 작업은 건너뜁니다."
-        # 원하는 경우 여기서 추가 데이터 볼륨/바인드 마운트 없이 기본 conf만 작성 가능
-        local lxc_conf="/etc/pve/lxc/${CT_ID}.conf"
-        if [ -n "$DIR_BACKUP" ]; then
-            cat >> "$lxc_conf" <<EOF
-mp1: $DIR_BACKUP_UBUNTU,mp=$MNT_BACKUP
-lxc.cgroup2.devices.allow: c 10:229 rwm
-lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file
-lxc.apparmor.profile: unconfined
-lxc.cgroup2.devices.allow: a
-lxc.cap.drop:
-EOF
+        log_error "파일시스템 생성에 실패했습니다"
+        return 1
+    fi
+
+    # UUID 획득
+    local uuid=$(blkid -s UUID -o value "$partition")
+    if [[ -z "$uuid" ]]; then
+        log_error "UUID를 찾을 수 없습니다: $partition"
+        return 1
+    fi
+    
+    # 마운트
+    if ! mount | grep "$MNT_DISK"; then
+        # fstab 설정
+        if ! grep -qs "UUID=$uuid $MNT_DISK" /etc/fstab; then
+            # 마운트 디렉토리 생성
+            mkdir -p "$MNT_DISK" >/dev/null 2>&1 
+        
+            echo "UUID=$uuid $MNT_DISK ext4 defaults 0 2" >> /etc/fstab
+            log_success "fstab 설정 완료"
+            systemctl daemon-reload
         else
-            cat >> "$lxc_conf" <<EOF
+            log_info "이미 fstab에 등록되어 있습니다"
+        fi
+
+        if mount -a; then
+            log_success "디렉토리 마운트 완료: $MNT_DISK"
+        else
+            log_error "마운트에 실패했습니다"
+            return 1
+        fi
+    else
+        log_info "이미 $MNT_DISK 마운트되어 있습니다"
+    fi
+
+    echo
+    log_success "백업 디스크 설정 완료"
+    echo -e "${CYAN}  - 파티션: $partition${NC}"
+    echo -e "${CYAN}  - UUID: $uuid${NC}"
+    echo -e "${CYAN}  - 마운트 포인트: $MNT_DISK${NC}"
+
+}
+
+# 5단계: RCLONE 저장소 및 LXC 설정
+configure_rclone_and_lxc() {
+    log_step "단계 5/7: LXC 설정"
+
+    # 원하는 경우 여기서 추가 데이터 볼륨/바인드 마운트 없이 기본 conf만 작성 가능
+    local lxc_conf="/etc/pve/lxc/${CT_ID}.conf"
+    if ! mount | grep "$MNT_DISK"; then
+        cat >> "$lxc_conf" <<EOF
+mp1: $MNT_DISK,mp=$MNT_DISK
 lxc.cgroup2.devices.allow: c 10:229 rwm
 lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file
 lxc.apparmor.profile: unconfined
 lxc.cgroup2.devices.allow: a
 lxc.cap.drop:
 EOF
-        fi
-        log_success "기본 LXC 설정 추가 완료 (RCLONE LV 마운트 없이)"
+        log_success "기본 LXC 설정 추가 완료 (백업디스크 마운트 적용)"
+    else
+        cat >> "$lxc_conf" <<EOF
+lxc.cgroup2.devices.allow: c 10:229 rwm
+lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file
+lxc.apparmor.profile: unconfined
+lxc.cgroup2.devices.allow: a
+lxc.cap.drop:
+EOF
+        log_success "기본 LXC 설정 추가 완료"
     fi
 }
 
-# 5단계: GPU 설정
+# 6단계: GPU 설정
 configure_gpu_settings() {
-    log_step "단계 5/5: GPU 설정"
+    log_step "단계 6/7: GPU 설정"
     
     show_gpu_options
     
@@ -410,9 +438,9 @@ EOF
     esac
 }
 
-# 컨테이너 시작 및 초기화
+# 7단계: 컨테이너 시작 및 초기화
 start_and_initialize() {
-    log_step "컨테이너 시작 및 초기화 스크립트 실행"
+    log_step "단계 7/7: 컨테이너 시작 및 초기화 스크립트 실행"
     
     log_info "LXC 컨테이너 시작 중..."
     if pct start $CT_ID >/dev/null 2>&1; then
@@ -494,14 +522,17 @@ main() {
     
     # 3단계: 컨테이너 생성
     create_container
+
+    # 4단계: 백업 디스크 설정 
+    create_backup_disk
     
-    # 4단계: RCLONE 및 LXC 설정
+    # 5단계: RCLONE 및 LXC 설정
     configure_rclone_and_lxc
     
-    # 5단계: GPU 설정
+    # 6단계: GPU 설정
     configure_gpu_settings
     
-    # 6단계: 컨테이너 시작 및 초기화
+    # 7단계: 컨테이너 시작 및 초기화
     start_and_initialize
     
     # 완료 메시지
