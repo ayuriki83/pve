@@ -124,6 +124,7 @@ generate_backup_script() {
 SRC_DIRS="/docker"
 SRC_FILES=(
   "/docker/rclone-after-service.sh"
+  "/docker/docker-backup.sh"
 )
 EXCLUDE_DIRS=("core")
 DEST_BASE="$MOUNTPOINT/docker"
@@ -132,10 +133,10 @@ SCRIPT_DIR="\$(cd "\$(dirname "\$0")" && pwd)"
 LOGFILE="\$SCRIPT_DIR/docker-backup.log"
 
 # 로그 로테이션 (3일 지난 로그 삭제)
-find "\$SCRIPT_DIR" -maxdepth 1 -name "docker-backup.log.*" -type f -mtime +3 -exec rm -f {} \;
-if [ -f "\$LOGFILE" ]; then
-  mv "\$LOGFILE" "\$LOGFILE.\$(date +%Y%m%d)"
-fi
+#find "\$SCRIPT_DIR" -maxdepth 1 -name "docker-backup.log.*" -type f -mtime +3 -exec rm -f {} \;
+#if [ -f "\$LOGFILE" ]; then
+#  mv "\$LOGFILE" "\$LOGFILE.\$(date +%Y%m%d)"
+#fi
 
 echo "복사 작업 시작: \$(date)" | tee -a "\$LOGFILE"
 
@@ -150,7 +151,7 @@ for SRC in "\$SRC_DIRS"/*/; do
 
   DEST="\${DEST_BASE}/\${BASENAME}"
   echo "[\$(date)] 복사 시작: \$SRC -> \$DEST" | tee -a "\$LOGFILE"
-  rsync -aW --delete --info=progress2 --mkpath "\$SRC" "\$DEST/"
+  rsync -a --delete --info=progress2 --mkpath "\$SRC" "\$DEST/"
 done
 
 for FILE in "\${SRC_FILES[@]}"; do
