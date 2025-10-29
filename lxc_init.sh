@@ -343,23 +343,6 @@ configure_firewall() {
     
     log_info "방화벽 규칙 설정 중..."
     
-    # 개별 포트 허용
-    local port_count=0
-    for port in $ALLOW_PORTS; do
-        # 포트 형식 검증
-        if [[ "$port" =~ ^[0-9]+(/tcp|/udp)?$ ]]; then
-            if ufw allow "$port" >/dev/null 2>&1; then
-                ((port_count++))
-                log_info "포트 $port 허용 완료"
-            else
-                log_warn "포트 $port 설정 실패"
-            fi
-        else
-            log_warn "잘못된 포트 형식: $port"
-        fi
-    done
-    log_success "개별 포트 허용 완료: $port_count개"
-    
     # 내부망 허용
     local gateway_ip=$(ip route | awk '/default/ {print $3; exit}')
     local internal_net=""
@@ -394,6 +377,23 @@ configure_firewall() {
             log_warn "Docker 네트워크($netname) 방화벽 허용 실패: $subnet"
         fi
     done
+
+    # 개별 포트 허용
+    local port_count=0
+    for port in $ALLOW_PORTS; do
+        # 포트 형식 검증
+        if [[ "$port" =~ ^[0-9]+(/tcp|/udp)?$ ]]; then
+            if ufw allow "$port" >/dev/null 2>&1; then
+                ((port_count++))
+                log_info "포트 $port 허용 완료"
+            else
+                log_warn "포트 $port 설정 실패"
+            fi
+        else
+            log_warn "잘못된 포트 형식: $port"
+        fi
+    done
+    log_success "개별 포트 허용 완료: $port_count개"
     
     # UFW 활성화
     local ufw_status=$(ufw status 2>/dev/null | head -n1)
