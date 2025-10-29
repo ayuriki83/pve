@@ -266,12 +266,15 @@ uninstall() {
 # ==============================
 main() {
   show_header "Docker 백업 스크립트 설정 관리자"
+
+  log_info "원하는 작업을 선택하세요:"
+  echo -e "${CYAN}  1) NFS 백업 설정${NC}"
+  echo -e "${CYAN}  2) MP(마운트포인트) 백업 설정${NC}"
+  echo -e "${CYAN}  3) Uninstall (삭제)${NC}"
+  echo -e "${CYAN}  q) 종료${NC}"
+  echo -ne "${CYAN}선택 [1,2,3,q]: ${NC}"
+  read choice
   
-  echo "1) NFS 백업 설정"
-  echo "2) MP(마운트포인트) 백업 설정"
-  echo "3) Uninstall (삭제)"
-  echo "q) 종료"
-  read -p "원하는 작업을 선택하세요: " choice
   case "$choice" in
     1)
       get_user_input_nfs
