@@ -47,6 +47,26 @@ load_config() {
     fi
 }
 
+# IP 주소 검증 함수
+validate_ip() {
+    local ip="$1"
+    local ip_regex="^([0-9]{1,3}\.){3}[0-9]{1,3}$"
+    
+    if [[ ! $ip =~ $ip_regex ]]; then
+        return 1
+    fi
+    
+    # 각 옥텟이 0-255 범위인지 확인
+    IFS='.' read -ra octets <<< "$ip"
+    for octet in "${octets[@]}"; do
+        if [[ $octet -gt 255 ]]; then
+            return 1
+        fi
+    done
+    
+    return 0
+}
+
 # 설정 파일 위치
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="$SCRIPT_DIR/synology.env"
