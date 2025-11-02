@@ -124,6 +124,7 @@ generate_backup_script() {
 SRC_DIRS="/docker"
 SRC_FILES=(
   "/docker/rclone-after-service.sh"
+  "/docker/docker-backup.sh"
 )
 EXCLUDE_DIRS=("core")
 DEST_BASE="$MOUNTPOINT/docker"
@@ -132,10 +133,10 @@ SCRIPT_DIR="\$(cd "\$(dirname "\$0")" && pwd)"
 LOGFILE="\$SCRIPT_DIR/docker-backup.log"
 
 # 로그 로테이션 (3일 지난 로그 삭제)
-find "\$SCRIPT_DIR" -maxdepth 1 -name "docker-backup.log.*" -type f -mtime +3 -exec rm -f {} \;
-if [ -f "\$LOGFILE" ]; then
-  mv "\$LOGFILE" "\$LOGFILE.\$(date +%Y%m%d)"
-fi
+#find "\$SCRIPT_DIR" -maxdepth 1 -name "docker-backup.log.*" -type f -mtime +3 -exec rm -f {} \;
+#if [ -f "\$LOGFILE" ]; then
+#  mv "\$LOGFILE" "\$LOGFILE.\$(date +%Y%m%d)"
+#fi
 
 echo "복사 작업 시작: \$(date)" | tee -a "\$LOGFILE"
 
@@ -150,7 +151,7 @@ for SRC in "\$SRC_DIRS"/*/; do
 
   DEST="\${DEST_BASE}/\${BASENAME}"
   echo "[\$(date)] 복사 시작: \$SRC -> \$DEST" | tee -a "\$LOGFILE"
-  rsync -aW --delete --info=progress2 --mkpath "\$SRC" "\$DEST/"
+  rsync -a --delete --info=progress2 --mkpath "\$SRC" "\$DEST/"
 done
 
 for FILE in "\${SRC_FILES[@]}"; do
@@ -265,12 +266,15 @@ uninstall() {
 # ==============================
 main() {
   show_header "Docker 백업 스크립트 설정 관리자"
+
+  log_info "원하는 작업을 선택하세요:"
+  echo -e "${CYAN}  1) NFS 백업 설정${NC}"
+  echo -e "${CYAN}  2) MP(마운트포인트) 백업 설정${NC}"
+  echo -e "${CYAN}  3) Uninstall (삭제)${NC}"
+  echo -e "${CYAN}  q) 종료${NC}"
+  echo -ne "${CYAN}선택 [1,2,3,q]: ${NC}"
+  read choice
   
-  echo "1) NFS 백업 설정"
-  echo "2) MP(마운트포인트) 백업 설정"
-  echo "3) Uninstall (삭제)"
-  echo "q) 종료"
-  read -p "원하는 작업을 선택하세요: " choice
   case "$choice" in
     1)
       get_user_input_nfs

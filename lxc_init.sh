@@ -40,7 +40,7 @@ load_config() {
         source "$config_file"
         log_success "설정 파일 로드됨: $config_file"
     else
-        log_warn "설정 파일을 찾을 수 없습니다: $config_file (기본값 사용)"
+        log_warn "설정 파일을 찾을 수 없음: $config_file (기본값 사용)"
     fi
 }
 
@@ -58,10 +58,14 @@ TIMEZONE=${TIMEZONE:-"Asia/Seoul"}
 DOCKER_DATA_ROOT=${DOCKER_DATA_ROOT:-"/docker/core"}
 DOCKER_DNS1=${DOCKER_DNS1:-"8.8.8.8"}
 DOCKER_DNS2=${DOCKER_DNS2:-"1.1.1.1"}
-DOCKER_BRIDGE_NET=${DOCKER_BRIDGE_NET:-"172.18.0.0/16"}
-DOCKER_BRIDGE_GW=${DOCKER_BRIDGE_GW:-"172.18.0.1"}
-DOCKER_BRIDGE_NM=${DOCKER_BRIDGE_NM:-"ProxyNet"}
-ALLOW_PORTS=${ALLOW_PORTS:-"80/tcp 443/tcp 443/udp 45876 5574 9999 32400"}
+DOCKER_BRIDGE_NET1=${DOCKER_BRIDGE_NET1:-"172.18.0.0/16"}
+DOCKER_BRIDGE_GW1=${DOCKER_BRIDGE_GW1:-"172.18.0.1"}
+DOCKER_BRIDGE_NM1=${DOCKER_BRIDGE_NM1:-"ProxyNet"}
+DOCKER_BRIDGE_NET2=${DOCKER_BRIDGE_NET2:-"172.19.0.0/16"}
+DOCKER_BRIDGE_GW2=${DOCKER_BRIDGE_GW2:-"172.19.0.1"}
+DOCKER_BRIDGE_NM2=${DOCKER_BRIDGE_NM2:-"ProxyNet2"}
+#ALLOW_PORTS=${ALLOW_PORTS:-"80/tcp 443/tcp 443/udp 45876 5574 9999 32400"}
+ALLOW_PORTS=${ALLOW_PORTS:-"80/tcp 443/tcp 443/udp"}
 
 # 총 단계 수
 readonly TOTAL_STEPS=12
@@ -97,14 +101,14 @@ update_system() {
     if apt-get update -qq >/dev/null 2>&1; then
         log_success "패키지 목록 업데이트 완료"
     else
-        log_warn "패키지 목록 업데이트에 실패했지만 계속 진행합니다"
+        log_warn "패키지 목록 업데이트에 실패했지만 계속 진행"
     fi
     
     log_info "시스템 업그레이드 중..."
     if apt-get upgrade -y >/dev/null 2>&1; then
         log_success "시스템 업그레이드 완료"
     else
-        log_warn "시스템 업그레이드에 실패했지만 계속 진행합니다"
+        log_warn "시스템 업그레이드에 실패했지만 계속 진행"
     fi
     
     log_info "기본 패키지 설치 중..."
@@ -112,7 +116,7 @@ update_system() {
         log_success "기본 패키지 설치 완료"
         echo -e "${CYAN}  설치된 패키지: $BASIC_APT dnsutils${NC}"
     else
-        log_error "기본 패키지 설치에 실패했습니다"
+        log_error "기본 패키지 설치에 실패"
         exit 1
     fi
 }
@@ -129,7 +133,7 @@ disable_apparmor() {
     if apt-get remove -y apparmor man-db >/dev/null 2>&1; then
         log_success "AppArmor 비활성화 완료"
     else
-        log_warn "AppArmor 제거에 실패했지만 계속 진행합니다"
+        log_warn "AppArmor 제거에 실패했지만 계속 진행"
     fi
 }
 
@@ -141,20 +145,20 @@ configure_locale() {
     if apt-get install -y language-pack-ko fonts-nanum locales >/dev/null 2>&1; then
         log_success "한국어 패키지 설치 완료"
     else
-        log_warn "한국어 패키지 설치에 실패했지만 계속 진행합니다"
+        log_warn "한국어 패키지 설치에 실패했지만 계속 진행"
     fi
     
     log_info "로케일 생성 중..."
     if locale-gen $LOCALE_LANG >/dev/null 2>&1; then
         log_success "로케일 생성 완료: $LOCALE_LANG"
     else
-        log_warn "로케일 생성에 실패했습니다"
+        log_warn "로케일 생성에 실패"
     fi
     
     if update-locale LANG=$LOCALE_LANG >/dev/null 2>&1; then
         log_success "기본 로케일 설정 완료"
     else
-        log_warn "기본 로케일 설정에 실패했습니다"
+        log_warn "기본 로케일 설정에 실패"
     fi
     
     # 환경변수 추가
@@ -182,7 +186,7 @@ configure_timezone() {
         local current_time=$(date '+%Y-%m-%d %H:%M:%S %Z')
         log_success "시간대 설정 완료: $current_time"
     else
-        log_warn "시간대 설정에 실패했습니다"
+        log_warn "시간대 설정에 실패"
     fi
 }
 
@@ -191,7 +195,7 @@ configure_gpu() {
     log_step "단계 6/$TOTAL_STEPS: GPU 설정"
     
     if [[ -z "$GPU_CHOICE" ]]; then
-        log_info "GPU 설정이 지정되지 않았습니다. 건너뜁니다"
+        log_info "GPU 설정이 지정되지 않아 건너뜀뜀"
         return 0
     fi
     
@@ -203,10 +207,10 @@ configure_gpu() {
                 if vainfo >/dev/null 2>&1; then
                     log_success "AMD GPU 정상 동작 확인"
                 else
-                    log_warn "AMD GPU 동작 확인 실패 (정상적일 수 있습니다)"
+                    log_warn "AMD GPU 동작 확인 실패 (정상적일 수 있음)"
                 fi
             else
-                log_warn "AMD GPU 도구 설치에 실패했습니다"
+                log_warn "AMD GPU 도구 설치에 실패"
             fi
             ;;
         2) # Intel
@@ -216,10 +220,10 @@ configure_gpu() {
                 if vainfo >/dev/null 2>&1; then
                     log_success "Intel GPU 정상 동작 확인"
                 else
-                    log_warn "Intel GPU 동작 확인 실패 (정상적일 수 있습니다)"
+                    log_warn "Intel GPU 동작 확인 실패 (정상적일 수 있음음)"
                 fi
             else
-                log_warn "Intel GPU 도구 설치에 실패했습니다"
+                log_warn "Intel GPU 도구 설치에 실패"
             fi
             ;;
         3) # NVIDIA
@@ -229,14 +233,14 @@ configure_gpu() {
                 if nvidia-smi >/dev/null 2>&1; then
                     log_success "NVIDIA GPU 정상 동작 확인"
                 else
-                    log_warn "NVIDIA GPU 동작 확인 실패 (재부팅 후 확인 필요할 수 있습니다)"
+                    log_warn "NVIDIA GPU 동작 확인 실패 (재부팅 후 확인 필요할 수 있음)"
                 fi
             else
-                log_warn "NVIDIA GPU 드라이버 설치에 실패했습니다"
+                log_warn "NVIDIA GPU 드라이버 설치에 실패"
             fi
             ;;
         *)
-            log_info "GPU 설정을 건너뜁니다"
+            log_info "GPU 설정을 건너뜀뜀"
             ;;
     esac
 }
@@ -249,7 +253,7 @@ install_docker() {
     if apt-get install -y docker.io docker-compose-v2 >/dev/null 2>&1; then
         log_success "Docker 패키지 설치 완료"
     else
-        log_error "Docker 설치에 실패했습니다"
+        log_error "Docker 설치에 실패"
         exit 1
     fi
     
@@ -257,7 +261,7 @@ install_docker() {
     if systemctl enable docker >/dev/null 2>&1 && systemctl start docker >/dev/null 2>&1; then
         log_success "Docker 서비스 시작 완료"
     else
-        log_error "Docker 서비스 시작에 실패했습니다"
+        log_error "Docker 서비스 시작에 실패"
         exit 1
     fi
 }
@@ -299,7 +303,7 @@ EOF
     if systemctl restart docker >/dev/null 2>&1; then
         log_success "Docker 서비스 재시작 완료"
     else
-        log_error "Docker 서비스 재시작에 실패했습니다"
+        log_error "Docker 서비스 재시작에 실패"
         exit 1
     fi
 }
@@ -307,15 +311,30 @@ EOF
 # Docker 네트워크 생성
 create_docker_network() {
     log_step "단계 9/$TOTAL_STEPS: Docker 사용자 네트워크 생성"
-    
-    log_info "Docker 사용자 네트워크 생성 중..."
-    if docker network create --subnet=$DOCKER_BRIDGE_NET --gateway=$DOCKER_BRIDGE_GW $DOCKER_BRIDGE_NM >/dev/null 2>&1; then
-        log_success "Docker 네트워크 생성 완료: $DOCKER_BRIDGE_NM"
-        echo -e "${CYAN}  - 서브넷: $DOCKER_BRIDGE_NET${NC}"
-        echo -e "${CYAN}  - 게이트웨이: $DOCKER_BRIDGE_GW${NC}"
-    else
-        log_info "Docker 네트워크가 이미 존재하거나 생성에 실패했습니다"
-    fi
+
+    for i in 1 2; do
+        eval net="DOCKER_BRIDGE_NET$i"
+        eval gw="DOCKER_BRIDGE_GW$i"
+        eval name="DOCKER_BRIDGE_NM$i"
+        subnet="${!net}"
+        gateway="${!gw}"
+        netname="${!name}"
+
+        [ -z "$netname" ] && continue  # 이름이 없으면 스킵
+        
+        if docker network ls --format '{{.Name}}' | grep -wq "$netname"; then
+            log_info "Docker 네트워크($netname) 이미 존재"
+        else
+            log_info "Docker 사용자 네트워크($netname) 생성 중..."
+            if docker network create --subnet="$subnet" --gateway="$gateway" "$netname" >/dev/null 2>&1; then
+                log_success "Docker 네트워크($netname) 생성 완료"
+                echo -e "${CYAN}  - 서브넷: $subnet${NC}"
+                echo -e "${CYAN}  - 게이트웨이: $gateway${NC}"
+            else
+                log_warn "Docker 네트워크($netname) 생성 실패"
+            fi
+        fi
+    done
 }
 
 # UFW 방화벽 설정
@@ -324,6 +343,41 @@ configure_firewall() {
     
     log_info "방화벽 규칙 설정 중..."
     
+    # 내부망 허용
+    local gateway_ip=$(ip route | awk '/default/ {print $3; exit}')
+    local internal_net=""
+    if [[ -n "$gateway_ip" && "$gateway_ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+        internal_net=$(echo "$gateway_ip" | awk -F. '{print $1"."$2"."$3".0/24"}')
+    fi
+    
+    if [[ -n "$internal_net" ]]; then
+        if ufw allow from "$internal_net" >/dev/null 2>&1; then
+            log_success "내부망 허용 완료: $internal_net"
+        else
+            log_warn "내부망 설정 실패: $internal_net"
+        fi
+    else
+        log_warn "내부망 IP를 찾을 수 없음음"
+    fi
+    
+    # Docker 네트워크 허용
+    for i in 1 2; do
+        eval net="DOCKER_BRIDGE_NET$i"
+        eval gw="DOCKER_BRIDGE_GW$i"
+        eval name="DOCKER_BRIDGE_NM$i"
+        subnet="${!net}"
+        gateway="${!gw}"
+        netname="${!name}"
+
+        [ -z "$netname" ] && continue  # 이름이 없으면 스킵
+
+        if ufw allow from "$subnet" >/dev/null 2>&1; then
+            log_success "Docker 네트워크($netname) 방화벽 허용 완료: $subnet"
+        else
+            log_warn "Docker 네트워크($netname) 방화벽 허용 실패: $subnet"
+        fi
+    done
+
     # 개별 포트 허용
     local port_count=0
     for port in $ALLOW_PORTS; do
@@ -341,40 +395,16 @@ configure_firewall() {
     done
     log_success "개별 포트 허용 완료: $port_count개"
     
-    # 내부망 허용
-    local gateway_ip=$(ip route | awk '/default/ {print $3; exit}')
-    local internal_net=""
-    if [[ -n "$gateway_ip" && "$gateway_ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-        internal_net=$(echo "$gateway_ip" | awk -F. '{print $1"."$2"."$3".0/24"}')
-    fi
-    
-    if [[ -n "$internal_net" ]]; then
-        if ufw allow from "$internal_net" >/dev/null 2>&1; then
-            log_success "내부망 허용 완료: $internal_net"
-        else
-            log_warn "내부망 설정 실패: $internal_net"
-        fi
-    else
-        log_warn "내부망 IP를 찾을 수 없습니다"
-    fi
-    
-    # Docker 네트워크 허용
-    if ufw allow from "$DOCKER_BRIDGE_NET" >/dev/null 2>&1; then
-        log_success "Docker 네트워크 허용 완료: $DOCKER_BRIDGE_NET"
-    else
-        log_warn "Docker 네트워크 허용 실패: $DOCKER_BRIDGE_NET"
-    fi
-    
     # UFW 활성화
     local ufw_status=$(ufw status 2>/dev/null | head -n1)
     if [[ "$ufw_status" != "Status: active" ]]; then
         if ufw --force enable >/dev/null 2>&1; then
             log_success "UFW 방화벽 활성화 완료"
         else
-            log_error "UFW 활성화에 실패했습니다"
+            log_error "UFW 활성화에 실패"
         fi
     else
-        log_success "UFW가 이미 활성화되어 있습니다"
+        log_success "UFW가 이미 활성화되어 있음"
     fi
 }
 
@@ -386,7 +416,7 @@ test_dns() {
     if dig @8.8.8.8 google.com +short >/dev/null 2>&1; then
         log_success "DNS 연결 정상"
     else
-        log_warn "DNS 쿼리에 실패했습니다"
+        log_warn "DNS 쿼리에 실패"
     fi
 }
 
@@ -396,21 +426,32 @@ configure_network_rules() {
     
     local nat_iface=$(ip route | awk '/default/ {print $5; exit}')
     if [[ -z "$nat_iface" ]]; then
-        log_warn "기본 네트워크 인터페이스를 찾을 수 없습니다"
+        log_warn "기본 네트워크 인터페이스를 찾을 수 없음"
         return 1
     fi
     
     # NAT 규칙 추가
     log_info "NAT 규칙 설정 중..."
-    if ! iptables -t nat -C POSTROUTING -s "$DOCKER_BRIDGE_NET" -o "$nat_iface" -j MASQUERADE 2>/dev/null; then
-        if iptables -t nat -A POSTROUTING -s "$DOCKER_BRIDGE_NET" -o "$nat_iface" -j MASQUERADE 2>/dev/null; then
-            log_success "NAT 규칙 추가 완료"
+    for i in 1 2; do
+        eval net="DOCKER_BRIDGE_NET$i"
+        eval gw="DOCKER_BRIDGE_GW$i"
+        eval name="DOCKER_BRIDGE_NM$i"
+        subnet="${!net}"
+        gateway="${!gw}"
+        netname="${!name}"
+
+        [ -z "$netname" ] && continue  # 이름이 없으면 스킵
+
+        if ! iptables -t nat -C POSTROUTING -s "$subnet" -o "$nat_iface" -j MASQUERADE 2>/dev/null; then
+            if iptables -t nat -A POSTROUTING -s "$subnet" -o "$nat_iface" -j MASQUERADE 2>/dev/null; then
+                log_success "Docker 네트워크($netname) NAT 규칙 추가 완료: $subnet"
+            else
+                log_warn "Docker 네트워크($netname) NAT 규칙 추가 실패: $subnet"
+            fi
         else
-            log_warn "NAT 규칙 추가에 실패했습니다"
+            log_info "Docker 네트워크($netname) NAT 규칙 이미 존재: $subnet"
         fi
-    else
-        log_info "NAT 규칙이 이미 존재합니다"
-    fi
+    done
     
     # UFW Docker 규칙 설정
     local ufw_after_rules="/etc/ufw/after.rules"
@@ -428,16 +469,16 @@ configure_network_rules() {
                 if ufw reload >/dev/null 2>&1; then
                     log_success "UFW 규칙 재로드 완료"
                 else
-                    log_warn "UFW 재로드에 실패했습니다"
+                    log_warn "UFW 재로드에 실패"
                 fi
             else
-                log_warn "UFW Docker 규칙 추가에 실패했습니다"
+                log_warn "UFW Docker 규칙 추가에 실패"
             fi
         else
-            log_info "UFW Docker 규칙이 이미 존재합니다"
+            log_info "UFW Docker 규칙이 이미 존재"
         fi
     else
-        log_warn "UFW after.rules 파일을 찾을 수 없습니다"
+        log_warn "UFW after.rules 파일을 찾을 수 없음"
     fi
 }
 
@@ -476,12 +517,6 @@ main() {
     echo -e "${CYAN}  - Docker: $(systemctl is-active docker)${NC}"
     echo -e "${CYAN}  - UFW: $(systemctl is-active ufw)${NC}"
     echo -e "${CYAN}  - 시간대: $(timedatectl | grep "Time zone" | awk '{print $3}')${NC}"
-    
-    echo
-    log_info "다음 단계"
-    echo -e "${CYAN}  1. 컨테이너 재시작: exit 후 pct restart <container_id>${NC}"
-    echo -e "${CYAN}  2. Docker 서비스 확인: docker --version${NC}"
-    echo -e "${CYAN}  3. 네트워크 확인: docker network ls${NC}"
     
     log_success "초기화 스크립트 실행 완료!"
 }

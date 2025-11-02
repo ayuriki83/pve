@@ -15,18 +15,24 @@ services:
       - "443:443"
       - "443:443/udp"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - ./log:/var/log
-      - ./data:/data
-      - ./config:/config
+      - /docker/caddy/Caddyfile:/etc/caddy/Caddyfile
+      - /docker/caddy/log:/var/log
+      - /docker/caddy/data:/data
+      - /docker/caddy/config:/config
     cap_add:
       - NET_ADMIN
     environment:
       - CLOUDFLARE_API_TOKEN=##API_TOKEN##
+    networks:
+      - ProxyNet
+      - ProxyNet2 
 networks:
-  default:
+  ProxyNet:
     external: true
-    name: ##DOCKER_BRIDGE_NM##
+    name: ##DOCKER_BRIDGE_NM1##
+  ProxyNet2:
+    external: true
+    name: ##DOCKER_BRIDGE_NM2##
 __EOF_END__
 __EOFS_END__
 __DOCKER_END__
@@ -46,7 +52,7 @@ services:
       - "9000:9000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./data:/data
+      - /docker/portainer/data:/data
     deploy:
       resources:
         limits:
@@ -58,7 +64,7 @@ services:
 networks:
   default:
     external: true
-    name: ##DOCKER_BRIDGE_NM##
+    name: ##DOCKER_BRIDGE_NM1##
 __EOF_END__
 __EOF_START__ /docker/docker-all-start.sh
 #!/usr/bin/env bash
@@ -151,7 +157,7 @@ __DOCKER_END__
 
 __DOCKER_START__ name=rclone req=true
 __CMD_START__
-mkdir -p /docker/rclone && mkdir -p /mnt/rclone/{Cache,Data} && mkdir -p /mnt/backup/docker
+mkdir -p /docker/rclone && mkdir -p /mnt/disk/gds/{Cache,Data} && mkdir -p /mnt/disk/docker && mkdir -p /mnt/disk/synology
 __CMD_END__
 __EOFS_START__
 __EOF_START__ /docker/rclone/docker-compose.yml
@@ -163,10 +169,10 @@ services:
     ports:
       - 5574:5574
     volumes:
-      - ./:/config
-      - ./:/log
-      - /rclone/Cache:/cache
-      - /rclone/Data:/data:rshared
+      - /docker/rclone/:/config
+      - /docker/rclone/:/log
+      - /mnt/disk/gds/Cache:/cache
+      - /mnt/disk/gds/Data:/data:rshared
     devices:
       - /dev/fuse
     cap_add:
@@ -203,7 +209,7 @@ services:
 networks:
   default:
     external: true
-    name: ##DOCKER_BRIDGE_NM##
+    name: ##DOCKER_BRIDGE_NM1##
 __EOF_END__
 __EOF_START__ /docker/rclone/rclone.conf
 [google]
@@ -219,14 +225,8 @@ __EOF_END__
 __EOF_START__ /docker/rclone-after-service.sh
 #!/bin/bash
 
-# ff_plex는 항상 중지 및 기동
-docker stop ff >/dev/null 2>&1 &
-docker stop plex >/dev/null 2>&1 &
-wait
-echo "[정보] ff_plex 서비스가 중지되었습니다."
-
-# kavita, jellyfin는 존재할 경우만 중지
-for service in kavita jellyfin; do
+# 서비스 중지 (plex, ff, kavita, jellyfin)
+for service in plex ff plex2 ff2 kavita; do
   dir="/docker/$service"
   # 폴더 없으면 서비스 없음 처리
   if [ ! -d "$dir" ]; then
@@ -235,7 +235,7 @@ for service in kavita jellyfin; do
   # 폴더 있음 → 서비스 실행 여부 확인
   if docker ps --filter "name=$service" --format '{{.Names}}' | grep -qw "$service"; then
     if docker stop "$service" >/dev/null 2>&1; then
-      echo "[정보] $service 서비스가 정상적으로 중지되었습니다."
+      echo "[정보] $service 서비스가 중지되었습니다."
     else
       echo "[경고] $service 서비스 중지에 실패했습니다."
     fi
@@ -248,28 +248,22 @@ done
 echo "[정보] 서비스가 완전히 중지될 때까지 3초간 대기합니다..."
 sleep 3
 
-# /mnt/rclone/DATA/GDRIVE가 마운트될 때까지 1초 간격 대기
-echo "[정보] /mnt/rclone/Data/GDRIVE 마운트 상태를 확인 중입니다..."
-while [ ! -d /mnt/rclone/Data/GDRIVE ]; do
+echo "[정보] /mnt/disk/gds/Data/GDRIVE 마운트 상태를 확인 중입니다..."
+while [ ! -d /mnt/disk/gds/Data/GDRIVE ]; do
   sleep 1
 done
-echo "[정보] /mnt/rclone/Data/GDRIVE가 마운트되었습니다."
+echo "[정보] /mnt/disk/gds/Data/GDRIVE가 마운트되었습니다."
 
 # I/O 안정화 대기
-echo "[정보] I/O 안정화를 위해 5초간 대기합니다..."
-sleep 5
+echo "[정보] I/O 안정화를 위해 1초간 대기합니다..."
+sleep 1
 
-# ff_plex는 무조건 기동
-cd /docker/ff_plex && docker compose up -d
-echo "[정보] ff_plex 서비스가 시작되었습니다."
-
-# kavita, jellyfin은 폴더 및 docker-compose.yml 확인 후 기동
-for service in kavita jellyfin; do
-  dir="/docker/$service"
-  compose_file="$dir/docker-compose.yml"
-  if [ -d "$dir" ] && [ -f "$compose_file" ]; then
-    cd "$dir" && docker compose up -d
+# 서비스 재시작
+for service in plex ff plex2 ff2 kavita; do
+  if docker start "$service" >/dev/null 2>&1; then
     echo "[정보] $service 서비스가 시작되었습니다."
+  else
+    echo "[경고] $service 서비스 시작에 실패했습니다."
   fi
 done
 
@@ -291,71 +285,95 @@ __EOF_END__
 __EOFS_END__
 __DOCKER_END__
 
-__DOCKER_START__ name=ff_plex req=true
+__DOCKER_START__ name=ff req=true
 __CMD_START__
-mkdir -p /docker/ff_plex/ff && mkdir -p /docker/ff_plex/plex/{config,transcode}
+mkdir -p /docker/ff
 __CMD_END__
 __EOFS_START__
-__EOF_START__ /docker/ff_plex/docker-compose.yml
-services: 
+__EOF_START__ /docker/ff/docker-compose.yml
+services:
   ff:
     container_name: ff
     image: flaskfarm/flaskfarm:4.0
+    #restart: unless-stopped
     ports:
-      - "9999:9999" # service port
-      - "9998:9998" # webhook port (plex)
-      - "9997:7575" # webhook port (jellyfin)
+      - "9999:9999"
+      - "9998:9998"
+      - "9997:7575"
     volumes:
-      - /docker/ff_plex/ff:/data
-      - /:/host         # 내부 우분투까지 접근. 로그삭제같은 특수기능떄문에 허용
-      - /mnt/rclone/Data:/share/gds:rshared
-      # plex mate plex-docker
-      - libpms:/usr/lib/plexmediaserver
-      - /docker/ff_plex/plex:/plex
+      - /docker/ff:/data
+      - /:/host
+      - /mnt/disk/gds/Data:/share/gds:rshared
+      - /docker/plex/libpms:/usr/lib/plexmediaserver
+      - /docker/plex:/plex
     privileged: true
+networks:
+  default:
+    external: true
+    name: ##DOCKER_BRIDGE_NM1##
+__EOF_END__
+__EOFS_END__
+__CADDYS_START__
+__CADDY_START__
+    # FF
+    @ff host ff.##DOMAIN##
+    handle @ff {
+        reverse_proxy ff:9999 {
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+__CADDY_END__
+__CADDYS_END__
+__DOCKER_END__
 
+__DOCKER_START__ name=plex req=true
+__CMD_START__
+mkdir -p /docker/plex/{config,transcode,libpms}
+__CMD_END__
+__EOFS_START__
+__EOF_START__ /docker/plex/docker-compose.yml
+services:
   plex:
     container_name: plex
-    image: ghcr.io/by275/plex:lsio-1.42.1.10060-4e8b05daf
+    image: ghcr.io/by275/plex:lsio-1.42.2.10156-f737b826c
+    #restart: unless-stopped
     security_opt:
       - no-new-privileges:true
     ports:
       - 32400:32400
     volumes:
-      - /docker/ff_plex/plex/config:/config
-      - /docker/ff_plex/plex/transcode:/transcode
+      - /docker/plex/config:/config
+      - /docker/plex/transcode:/transcode
+      - /docker/plex/libpms:/libpms
       - type: bind
-        source: /mnt/rclone/Data
+        source: /mnt/disk/gds/Data
         target: /share/gds
         bind:
           propagation: rslave
-      - libpms:/libpms
     devices:
       - "/dev/dri:/dev/dri"
+    environment:
+      PUID: 0
+      PGID: 0
+      TZ: Asia/Seoul
+      PLEX_CLAIM: claim-1234567890
+      VERSION: docker
+      WAIT_ANCHOR_DIRS: /share/gds/GDRIVE/VIDEO/방송중
+      WATCHER_DIRS: /share/gds/GDRIVE/VIDEO/방송중
+      WATCHER_INTERVAL: 3600s
+      CLEANUP_PTC_CRON: 44 44 */4 * * *
+      CLEANUP_PTC_EXCEED_GB: 30
+      CLEANUP_PTC_FREEUP_GB: 10
     logging:
       driver: json-file
       options:
         max-size: "1024k"
         max-file: "5"
-    environment:
-      - PUID=0
-      - PGID=0
-      - TZ=${TZ:-Asia/Seoul}
-      - PLEX_CLAIM=claim-dxqdEtTdsP_88m1ZBXE1
-      - VERSION=docker
-      - WAIT_ANCHOR_DIRS=/share/gds/GDRIVE/VIDEO/방송중
-      - WATCHER_DIRS=/share/gds/GDRIVE/VIDEO/방송중
-      - WATCHER_INTERVAL=3600s
-      - CLEANUP_PTC_CRON=44 44 */4 * * *
-      - CLEANUP_PTC_EXCEED_GB=30
-      - CLEANUP_PTC_FREEUP_GB=10
-volumes:
-  libpms:
-
 networks:
   default:
     external: true
-    name: ##DOCKER_BRIDGE_NM##
+    name: ##DOCKER_BRIDGE_NM1##
 __EOF_END__
 __EOFS_END__
 __CADDYS_START__
@@ -376,11 +394,104 @@ __CADDY_START__
         }
     }
 __CADDY_END__
+__CADDYS_END__
+__DOCKER_END__
+
+__DOCKER_START__ name=ff2 req=false
+__CMD_START__
+mkdir -p /docker/ff2
+__CMD_END__
+__EOFS_START__
+__EOF_START__ /docker/ff2/docker-compose.yml
+services:
+  ff:
+    container_name: ff2
+    image: flaskfarm/flaskfarm:4.0
+    #restart: unless-stopped
+    ports:
+      - "10000:9999"
+    volumes:
+      - /docker/ff2:/data
+      - /:/host
+      - /mnt/disk/gds/Data:/share/gds:rshared
+      - /docker/plex2/libpms:/usr/lib/plexmediaserver
+      - /docker/plex2:/plex
+    privileged: true
+networks:
+  default:
+    external: true
+    name: ##DOCKER_BRIDGE_NM2##
+__EOF_END__
+__EOFS_END__
+__CADDYS_START__
 __CADDY_START__
     # FF
-    @ff host ff.##DOMAIN##
-    handle @ff {
-        reverse_proxy ff:9999 {
+    @ff2 host ff.##DOMAIN##
+    handle @ff2 {
+        reverse_proxy ff2:9999 {
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+__CADDY_END__
+__CADDYS_END__
+__DOCKER_END__
+
+__DOCKER_START__ name=plex2 req=false
+__CMD_START__
+mkdir -p /docker/plex2/{config,transcode,libpms}
+__CMD_END__
+__EOFS_START__
+__EOF_START__ /docker/plex2/docker-compose.yml
+services:
+  plex:
+    container_name: plex2
+    image: ghcr.io/by275/plex:lsio-1.42.2.10156-f737b826c
+    #restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - 32401:32400
+    volumes:
+      - /docker/plex2/config:/config
+      - /docker/plex2/transcode:/transcode
+      - /docker/plex2/libpms:/libpms
+      - type: bind
+        source: /mnt/disk/gds/Data
+        target: /share/gds
+        bind:
+          propagation: rslave
+    devices:
+      - "/dev/dri:/dev/dri"
+    environment:
+      PUID: 0
+      PGID: 0
+      TZ: Asia/Seoul
+      PLEX_CLAIM: claim-1234567890
+      VERSION: docker
+      WAIT_ANCHOR_DIRS: /share/gds/GDRIVE/VIDEO/AV
+      WATCHER_DIRS: /share/gds/GDRIVE/VIDEO/AV
+      WATCHER_INTERVAL: 3600s
+      CLEANUP_PTC_CRON: 44 44 */4 * * *
+      CLEANUP_PTC_EXCEED_GB: 30
+      CLEANUP_PTC_FREEUP_GB: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: "1024k"
+        max-file: "5"
+networks:
+  default:
+    external: true
+    name: ##DOCKER_BRIDGE_NM2##
+__EOF_END__
+__EOFS_END__
+__CADDYS_START__
+__CADDY_START__
+    # Plex Media Server2
+    @plex2 host plex2.##DOMAIN##
+    handle @plex2 {
+        reverse_proxy plex2:32400 {
             header_up X-Forwarded-For {remote_host}
             header_up X-Real-IP {remote_host}
         }
@@ -402,9 +513,9 @@ services:
     ports:
       - 8096:8096                 # Jellyfin 기본 포트
     volumes:
-      - ./config:/config
-      - ./cache:/cache
-      - /mnt/rclone/Data/GDRIVE/VIDEO/AV:/media      # 본인의 미디어 경로로 수정
+      - /docker/jellyfin/config:/config
+      - /docker/jellyfin/cache:/cache
+      - /mnt/disk/gds/Data/GDRIVE/VIDEO/AV:/media      # 본인의 미디어 경로로 수정
     devices:
       - /dev/dri:/dev/dri         # Intel/NVIDIA GPU용 초기 예시
     environment:
@@ -414,7 +525,7 @@ services:
 networks:
   default:
     external: true
-    name: ##DOCKER_BRIDGE_NM##
+    name: ##DOCKER_BRIDGE_NM1##
 __EOF_END__
 __EOFS_END__
 __CADDYS_START__
@@ -444,8 +555,8 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - ./:/kavita/config
-      - /mnt/rclone/Data/GDRIVE/READING:/reading:rshared
+      - /docker/kavita/:/kavita/config
+      - /mnt/disk/gds/Data/GDRIVE/READING:/reading:rshared
     security_opt:
       - no-new-privileges:true
     logging:
@@ -461,7 +572,7 @@ services:
 networks:
   default:
     external: true
-    name: ##DOCKER_BRIDGE_NM##
+    name: ##DOCKER_BRIDGE_NM1##
 __EOF_END__
 __EOFS_END__
 __CADDYS_START__
@@ -492,7 +603,7 @@ services:
     ports:
       - "8090:8090"
     volumes:
-      - ./:/beszel_data
+      - /docker/beszel/:/beszel_data
     deploy:
       resources:
         limits:
@@ -504,7 +615,7 @@ volumes:
 networks:
   default:
     external: true
-    name: ##DOCKER_BRIDGE_NM##
+    name: ##DOCKER_BRIDGE_NM1##
 __EOF_END__
 __EOFS_END__
 __CADDYS_START__
@@ -533,9 +644,9 @@ services:
     image: 'louislam/uptime-kuma:latest'
     restart: unless-stopped
     ports:
-        - '3001:3001'
+        - 3001:3001
     volumes:
-        - './:/app/data'
+        - /docker/uptime-kuma/:/app/data
     environment:
       - TZ=Asia/Seoul
 volumes:
@@ -544,7 +655,7 @@ volumes:
 networks:
   default:
     external: true
-    name: ##DOCKER_BRIDGE_NM##
+    name: ##DOCKER_BRIDGE_NM1##
 __EOF_END__
 __EOFS_END__
 __CADDYS_START__
@@ -575,13 +686,13 @@ services:
     ports:
       - 8000:80
     volumes:
-      - ./:/data
+      - /docker/vaultwarden/:/data
     environment:
       - TZ=Asia/Seoul
 networks:
   default:
     external: true
-    name: ##DOCKER_BRIDGE_NM##
+    name: ##DOCKER_BRIDGE_NM1##
 __EOF_END__
 __EOFS_END__
 __DOCKER_END__

@@ -129,7 +129,8 @@ configure_security() {
     # 포트 허용 설정
     # - 22    : SSH
     # - 45876 : (사용자 정의 서비스)
-    local ports=("22" "45876")
+    #local ports=("22" "45876")
+    local ports=("45876")
     for port in "${ports[@]}"; do
         ufw allow "$port" >/dev/null 2>&1
         log_info "포트 $port 허용됨"
