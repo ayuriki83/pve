@@ -294,7 +294,7 @@ create_vm_and_set() {
     fi
     
     qm set $VM_ID $SATA_ARGS --args "$BOOTLOADER_ARGS $USB_ARGS" &> /dev/null
-    qm set $VM_ID --ipconfig0 ip=$IP,gw=$GATEWAY &> /dev/null
+    #qm set $VM_ID --ipconfig0 ip=$IP,gw=$GATEWAY &> /dev/null
     qm start $VM_ID
     log_info "VM 생성 및 실행 완료"
 }
@@ -313,7 +313,7 @@ main() {
     select_usb
 
     # 4단계: 네트워크 설정
-    configure_network
+    #configure_network
 
     # 5단계: VM 생성 및 구성
     create_vm_and_set
