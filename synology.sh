@@ -272,8 +272,8 @@ create_vm_and_set() {
     echo -e "${CYAN}  - 메모리: ${MEMORY_GB}GB${NC}"
     echo -e "${CYAN}  - CPU 코어: $CORES${NC}"
     echo -e "${CYAN}  - CPU 소켓: $SOCKETS${NC}"
-    echo -e "${CYAN}  - IP: $IP${NC}"
-    echo -e "${CYAN}  - GATEWAY: $GATEWAY${NC}"
+    #echo -e "${CYAN}  - IP: $IP${NC}"
+    #echo -e "${CYAN}  - GATEWAY: $GATEWAY${NC}"
 
     qm create $VM_ID \
         --name $VM_NAME \
@@ -328,12 +328,12 @@ main() {
     log_info "VM 정보"
     echo -e "${CYAN}  - VM ID: $VM_ID${NC}"
     echo -e "${CYAN}  - 호스트명: $VM_NAME${NC}"
-    echo -e "${CYAN}  - IP 주소: $(echo $IP | cut -d'/' -f1)${NC}"
+    #echo -e "${CYAN}  - IP 주소: $(echo $IP | cut -d'/' -f1)${NC}"
     echo -e "${CYAN}  - 상태: $(qm status $VM_ID)${NC}"
     
-    echo
-    log_info "접속 방법"
-    echo -e "${CYAN}  - http://${IP}:5000으로 접속하세요"
+    #echo
+    #log_info "접속 방법"
+    #echo -e "${CYAN}  - http://${IP}:5000으로 접속하세요"
 }
 
 main
