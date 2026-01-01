@@ -26,8 +26,10 @@ Components: no-subscription
 Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
 EOF
 
-apt update && apt upgrade -y
+apt update && apt install amd64-microcode -y && apt dist-upgrade -y
 apt install curl wget htop tree git vim parted net-tools -y
+# 재부팅 이후 아래 명령어
+apt autoremove --purge -y && apt clean
 
 mkdir -p /tmp/scripts && cd /tmp/scripts
 git clone --branch main --single-branch https://github.com/ayuriki83/pve.git ./
