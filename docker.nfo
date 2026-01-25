@@ -728,6 +728,17 @@ __CADDYFILE_START__ /docker/caddy/Caddyfile
         dns cloudflare {env.CLOUDFLARE_API_TOKEN}
     }
 
+    @caddy host caddy.##DOMAIN##
+    handle @caddy {
+        reverse_proxy caddy-gui:80 {
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Real-IP {remote_host}
+        }
+        basic_auth {
+            ##username## $2a$14$nUYGjPJbkssmEQ0LGdwz1eJv/vMinQ3HIRPsMQjHZ0ajmsr198koW
+        }
+    }
+
 _CADDYS_
 
     # 기본 응답 (매칭되지 않는 서브도메인)
