@@ -23,16 +23,23 @@ services:
       - NET_ADMIN
     environment:
       - CLOUDFLARE_API_TOKEN=##API_TOKEN##
-    networks:
-      - ProxyNet
-      - ProxyNet2 
+
+  caddy-gui:
+    # The image owner is now dynamically set via the REPOSITORY_OWNER environment variable for CI/CD.
+    # For local development, it falls back to 'taeho9'.
+    image: ghcr.io/${REPOSITORY_OWNER:-taeho9}/caddymanager/caddy-gui:latest
+    container_name: caddy-gui
+    restart: unless-stopped
+    ports:
+     - "8890:80"
+    volumes: 
+      - /docker/caddy/Caddyfile:/app/Caddyfile
+      - /var/run/docker.sock:/var/run/docker.sock
+
 networks:
-  ProxyNet:
+  default
     external: true
     name: ##DOCKER_BRIDGE_NM1##
-  ProxyNet2:
-    external: true
-    name: ##DOCKER_BRIDGE_NM2##
 __EOF_END__
 __EOFS_END__
 __DOCKER_END__
