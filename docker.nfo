@@ -735,7 +735,7 @@ __CADDYFILE_START__ /docker/caddy/Caddyfile
             header_up X-Real-IP {remote_host}
         }
         basic_auth {
-            ##username## $2a$14$nUYGjPJbkssmEQ0LGdwz1eJv/vMinQ3HIRPsMQjHZ0ajmsr198koW
+            ##USERNAME_PASSWORD## 
         }
     }
 
