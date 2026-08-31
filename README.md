@@ -1,3 +1,5 @@
+# 개인용이라 받으셔도 잘 안될껍니다.
+
 # Proxmox 9
 Proxmox 9 + LXC(Ubuntu) + Synology
 
